@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class MyModel(nn.Module):
     def __init__(self) -> None:
         super(MyModel, self).__init__()
@@ -20,4 +21,3 @@ class MyModel(nn.Module):
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
         return x
-

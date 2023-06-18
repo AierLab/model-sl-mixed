@@ -4,22 +4,23 @@ import flwr as fl
 from model import MyModel
 from helpers import get_weights, set_weights
 
+
 def main():
     # Start Flower server for three rounds of federated learning
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-r", type=int, default=3, help="Number of rounds for the federated training"
     )
-    
+
     parser.add_argument("-b", type=int, default=32, help="Batch size")
-    
+
     parser.add_argument(
         "-fc",
         type=int,
         default=2,
         help="Min fit clients, min number of clients to be sampled next round",
     )
-    
+
     parser.add_argument(
         "-ac",
         type=int,
@@ -41,7 +42,6 @@ def main():
         help="Path to checkpoint to be loaded",
     )
 
-
     args = parser.parse_args()
     rounds = int(args.r)
     fc = int(args.fc)
@@ -62,14 +62,17 @@ def main():
 
     strategy = fl.server.strategy.FedAvg(
         fraction_fit=1.0,  # Sample 100% of available clients for training
-        #fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
+        # fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
         min_fit_clients=fc,  # Never sample less than 2 clients for training
-        #min_evaluate_clients=ec,  # Never sample less than 2 clients for evaluation
+        # min_evaluate_clients=ec,  # Never sample less than 2 clients for evaluation
         min_available_clients=ac,  # Wait until all 2 clients are available
         initial_parameters=init_param,
     )
 
-    fl.server.start_server("0.0.0.0:8080", config={"num_rounds": rounds}, strategy=strategy)
-    
+    fl.server.start_server(server_address="localhost:8080",
+                           config=fl.server.ServerConfig(num_rounds=3),
+                           strategy=strategy)
+
+
 if __name__ == "__main__":
     main()

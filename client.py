@@ -12,16 +12,21 @@ import flwr as fl
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+
 def load_data():
     """Load CIFAR-10 (training and test set)."""
     transform = transforms.Compose(
-    [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+        [transforms.ToTensor(), transforms.Normalize(
+            (0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
     )
+
     trainset = CIFAR10(".", train=True, download=True, transform=transform)
     testset = CIFAR10(".", train=False, download=True, transform=transform)
+
     trainloader = DataLoader(trainset, batch_size=32, shuffle=True)
     testloader = DataLoader(testset, batch_size=32)
-    num_examples = {"trainset" : len(trainset), "testset" : len(testset)}
+
+    num_examples = {"trainset": len(trainset), "testset": len(testset)}
     return trainloader, testloader, num_examples
 
 
@@ -37,6 +42,7 @@ def train(model, trainloader, epochs):
             loss = criterion(model(images), labels)
             loss.backward()
             optimizer.step()
+
         # Additional information
         PATH = "model.pt"
         torch.save({
@@ -44,7 +50,7 @@ def train(model, trainloader, epochs):
             'model_state_dict': model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
             'loss': loss,
-            }, PATH)
+        }, PATH)
 
 
 def test(model, testloader):
@@ -62,12 +68,14 @@ def test(model, testloader):
     accuracy = correct / total
     return loss, accuracy
 
+
 # Load model and data
 model = MyModel().to(DEVICE)
 trainloader, testloader, num_examples = load_data()
 
+
 class CifarClient(fl.client.NumPyClient):
-    def get_parameters(self):
+    def get_parameters(self, config):
         return [val.cpu().numpy() for _, val in model.state_dict().items()]
 
     def set_parameters(self, parameters):
@@ -75,15 +83,17 @@ class CifarClient(fl.client.NumPyClient):
         state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
         model.load_state_dict(state_dict, strict=True)
 
-    def fit(self, parameters, config):
+    def fit(self, parameters, config={}):
         self.set_parameters(parameters)
         train(model, trainloader, epochs=1)
 
-        return self.get_parameters(), num_examples["trainset"], {}
+        return self.get_parameters(config), num_examples["trainset"], {}
 
     def evaluate(self, parameters, config):
         self.set_parameters(parameters)
         loss, accuracy = test(model, testloader)
         return float(loss), num_examples["testset"], {"accuracy": float(accuracy)}
 
-fl.client.start_numpy_client(server_address="0.0.0.0:8080", client=CifarClient())
+
+fl.client.start_numpy_client(
+    server_address="localhost:8080", client=CifarClient())
