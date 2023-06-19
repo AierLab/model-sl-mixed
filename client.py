@@ -20,8 +20,8 @@ def load_data():
             (0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
     )
 
-    trainset = CIFAR10(".", train=True, download=True, transform=transform)
-    testset = CIFAR10(".", train=False, download=True, transform=transform)
+    trainset = CIFAR10("client", train=True, download=True, transform=transform)
+    testset = CIFAR10("client", train=False, download=True, transform=transform)
 
     trainloader = DataLoader(trainset, batch_size=32, shuffle=True)
     testloader = DataLoader(testset, batch_size=32)
@@ -44,7 +44,7 @@ def train(model, trainloader, epochs):
             optimizer.step()
 
         # Additional information
-        PATH = "model.pt"
+        PATH = "client/model.pt"
         torch.save({
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
