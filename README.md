@@ -9,7 +9,7 @@ TODO pending for update
 
 1. Project Structure: [src/README.md](src/README.md)
 2. Federated Learning: [src/fedlearn/README.md](src/fedlearn/README.md)
-3. Split Learning: [src/fedlearn/README.md](src/splitlearn/README.md)
+3. Split Learning: [src/splitlearn/README.md](src/splitlearn/README.md)
 
 ## Architecture
 
