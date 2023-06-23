@@ -1,4 +1,4 @@
-from src.comn import AbstractServer
+from comn import AbstractServer
 class Server(AbstractServer):
     def __init__(self):
         super().__init__()

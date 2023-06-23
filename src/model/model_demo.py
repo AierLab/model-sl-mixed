@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from src.comn import AbstractClient
+from comn import AbstractClient
 from .model_abstract import AbstractModel
 
 class DemoModel(AbstractModel):
@@ -33,9 +33,20 @@ class DemoModel(AbstractModel):
         """Train the network on the training set."""
         self.to(device)
         criterion = torch.nn.CrossEntropyLoss()
-        optimizer = torch.optim.SGD(self.parameters(), lr=0.001, momentum=0.9)
-        for epoch in range(epochs):
-            print("Epoch", epoch)
+        optimizer = torch.optim.Adam(self.parameters(), lr=0.001)
+        base_epoch = 0
+        # base_loss = None # TODO not used
+
+        model_dict = self.load_local()
+        if model_dict:
+            self.load_state_dict(model_dict["model_state_dict"])
+            optimizer.load_state_dict(model_dict["optimizer_state_dict"])
+            base_epoch = model_dict["epoch"]
+            # base_loss = model_dict['loss'] # TODO not used
+
+        for epoch in range(1, epochs+1):
+            epoch += base_epoch
+            print(f"Log: start Epoch{epoch}")
 
             loss = None
             for images, labels in dataloader:
@@ -56,6 +67,11 @@ class DemoModel(AbstractModel):
         self.to(device)
         criterion = torch.nn.CrossEntropyLoss()
         correct, total, loss = 0, 0, 0.0
+
+        model_dict = self.load_local()
+        if model_dict:
+            self.load_state_dict(model_dict["model_state_dict"])
+
         with torch.no_grad():
             for data in dataloader:
                 images, labels = data[0].to(device), data[1].to(device)

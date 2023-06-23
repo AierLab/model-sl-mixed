@@ -1,4 +1,4 @@
-from src.comn import AbstractClient
+from comn import AbstractClient
 
 
 class Client(AbstractClient):

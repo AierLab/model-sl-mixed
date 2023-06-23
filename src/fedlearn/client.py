@@ -1,17 +1,15 @@
+import os.path
 from collections import OrderedDict
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torchvision.transforms as transforms
-from torch.utils.data import DataLoader
-from torchvision.datasets import CIFAR10
 
 import flwr as fl
 
-from src.data import AbstractData, CifarData
-from src.model import AbstractModel, DemoModel
-from src.comn import AbstractClient
+import helper
+from data import AbstractData, CifarData
+from model import AbstractModel, DemoModel
+from comn import AbstractClient
+
 
 class Client(fl.client.NumPyClient, AbstractClient):
     def __init__(self, data: AbstractData, model: AbstractModel):
@@ -38,12 +36,13 @@ class Client(fl.client.NumPyClient, AbstractClient):
     def evaluate(self, parameters, config):
         self.set_parameters(parameters)
         loss, accuracy = self.model.model_test(self.testloader, self.device)
-        print(f"loss: {loss}, accuracy{accuracy}") # TODO refactor to log
+        print(f"loss: {loss}, accuracy{accuracy}")  # TODO refactor to log
         return float(loss), self.num_examples["testset"], {"accuracy": float(accuracy)}
 
     def run(self):
         fl.client.start_numpy_client(
             server_address="localhost:8080", client=self)
+
 
 if __name__ == '__main__':
     CLIENT_DIR = "../../tmp/client/c02"
@@ -54,6 +53,3 @@ if __name__ == '__main__':
 
     client = Client(data, model)
     client.run()
-
-
-

@@ -2,9 +2,9 @@
 import argparse
 import flwr as fl
 
-from src.comn import AbstractServer
-from src.model import AbstractModel, DemoModel
-from src.helper import get_weights, set_weights
+from comn import AbstractServer
+from model import AbstractModel, DemoModel
+from helper import get_weights, set_weights
 
 
 class Server(AbstractServer):
