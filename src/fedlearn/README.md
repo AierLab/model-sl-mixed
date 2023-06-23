@@ -40,6 +40,8 @@
 - [x] Federated learning + Pytroch.
 - [x] Load checkpoint on server side.
 - [x] Save checkpoint on client side.
+- [x] Save checkpoint on server side.
 
 ## TODOs
-- [ ] Save checkpoint on server side.
+
+- [ ] Rewrite Aggregation func for split learning.
