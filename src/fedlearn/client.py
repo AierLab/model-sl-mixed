@@ -5,7 +5,6 @@ import torch
 
 import flwr as fl
 
-import helper
 from data import AbstractData, CifarData
 from model import AbstractModel, DemoModel
 from comn import AbstractClient
@@ -42,14 +41,3 @@ class Client(fl.client.NumPyClient, AbstractClient):
     def run(self):
         fl.client.start_numpy_client(
             server_address="localhost:8080", client=self)
-
-
-if __name__ == '__main__':
-    CLIENT_DIR = "../../tmp/client/c02"
-
-    # Init data and model.
-    data = CifarData(data_dir=CLIENT_DIR)
-    model = DemoModel(None, model_dir=CLIENT_DIR)
-
-    client = Client(data, model)
-    client.run()
