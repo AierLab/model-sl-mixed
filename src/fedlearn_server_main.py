@@ -1,11 +1,9 @@
-
 import argparse
-import flwr as fl
-from model import MyModel
-from helpers import get_weights, set_weights
 
+from model import DemoModel
+from fedlearn import Server
 
-def main():
+if __name__ == '__main__':
     # Start Flower server for three rounds of federated learning
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -43,6 +41,7 @@ def main():
     )
 
     args = parser.parse_args()
+
     rounds = int(args.r)
     fc = int(args.fc)
     ac = int(args.ac)
@@ -52,27 +51,14 @@ def main():
     batch_size = int(args.b)
     init_param = None
 
-    if ckpt_path != "":
-        model = MyModel()
-        init_weights = get_weights(model)
-        # Convert the weights (np.ndarray) to parameters
-        init_param = fl.common.weights_to_parameters(init_weights)
-        # del the net as we don't need it anymore
-        del model
+    SERVER_DIR = "../tmp/server"
+    model = DemoModel(None, SERVER_DIR)
+    base_epoch = 0
 
-    strategy = fl.server.strategy.FedAvg(
-        fraction_fit=1.0,  # Sample 100% of available clients for training
-        # fraction_evaluate=0.5,  # Sample 50% of available clients for evaluation
-        min_fit_clients=fc,  # Never sample less than 2 clients for training
-        # min_evaluate_clients=ec,  # Never sample less than 2 clients for evaluation
-        min_available_clients=ac,  # Wait until all 2 clients are available
-        initial_parameters=init_param,
-    )
+    model_dict = model.load_local()
+    if model_dict:
+        model.load_state_dict(model_dict["model_state_dict"])
+        base_epoch = model_dict["epoch"]
 
-    fl.server.start_server(server_address="localhost:8080",
-                           config=fl.server.ServerConfig(num_rounds=3),
-                           strategy=strategy)
-
-
-if __name__ == "__main__":
-    main()
+    server = Server(model, base_epoch, fc, ac)
+    server.run()
