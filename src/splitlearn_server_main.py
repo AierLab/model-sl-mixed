@@ -1,58 +1,24 @@
-from comn import AbstractServer
-import socket
-import os
-from splitlearn import SplitServer
-import argparse
-from model import DemoModel
-from model import SplitServerModel
+import torch.nn as nn
+
+from data import CifarData
+from comn import ServerSocket
+from model.model_split_server import SplitServerModel
+from splitlearn import SplitClient, SplitServer
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-        "-ckpt",
-        type=str,
-        default="",
-        help="Path to the checkpoint to be loaded",
+    m2 = nn.Sequential(
+        nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
+        nn.ReLU(),
+        nn.MaxPool2d(kernel_size=2, stride=2)
     )
 
-    parser.add_argument(
-        "-host",
-        type=str,
-        default="localhost",
-        help="Address of the server",
-    )
+    model_layers = nn.Sequential(m2)
 
-    parser.add_argument(
-        "-port",
-        type=int,
-        default=10086,
-        help="Port of the server",
-    )
-
-    parser.add_argument(
-        "-e",
-        type=int,
-        default=1,
-        help="Number of epochs to train",
-    )
-
-    args = parser.parse_args()
-    epoch_num = int(args.e)
-    ckpt_path = args.ckpt
-    host = args.host
-    port = int(args.port)
-
-    # init server
     SERVER_DIR = "../tmp/server"
-    model = SplitServerModel(None, SERVER_DIR)
 
-    model_dict = model.load_local()
-    if model_dict:
-        model.load_state_dict(model_dict["model_state_dict"])
-        base_epoch = model_dict["epoch"]
+    # Init data and model.
+    socket = ServerSocket(host="localhost", port=10086)
+    model = SplitServerModel(model_layers, socket, SERVER_DIR)
 
-    server = SplitServer(model, epoch_num, ckpt_path, host, port)
-
+    server = SplitServer(model)
     server.run()
-    server.fit()

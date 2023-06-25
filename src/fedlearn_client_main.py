@@ -10,7 +10,7 @@ if __name__ == '__main__':
 
     # Init data and model.
     data = CifarData(data_dir=CLIENT_DIR)
-    model = DemoModel(None, model_dir=CLIENT_DIR)
+    model = DemoModel(model_dir=CLIENT_DIR)
 
     client = FedClient(data, model)
     client.run()

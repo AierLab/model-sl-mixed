@@ -1,7 +1,8 @@
-from torch import nn
-
 from data import CifarData
-from model import SplitClientModel
+from comn import ClientSocket
+import torch.nn as nn
+
+from model.model_split_client import SplitClientModel
 from splitlearn import SplitClient
 
 if __name__ == '__main__':
@@ -15,24 +16,18 @@ if __name__ == '__main__':
         nn.ReLU(),
         nn.MaxPool2d(kernel_size=2, stride=2))
 
-    m2 = nn.Sequential(
-        nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
-        nn.ReLU(),
-        nn.MaxPool2d(kernel_size=2, stride=2)
-    )
-
     m3 = nn.Sequential(
         nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
         nn.ReLU(),
         nn.MaxPool2d(kernel_size=2, stride=2)
     )
 
-    model_layers = nn.Sequential(m1, m2, m3)
+    model_layers = nn.Sequential(m1, m3)
 
-    # Init data and model.
+    # Init data, socket and model.
     data = CifarData(data_dir=CLIENT_DIR)
-    model = SplitClientModel(CLIENT_DIR, model_layers)
+    socket = ClientSocket(host="localhost", port=10086)
+    model = SplitClientModel(model_layers, socket, CLIENT_DIR)
 
-    client = SplitClient(data, model, host="localhost", port=10086)
+    client = SplitClient(data, model)
     client.run()
-    client.fit(None)

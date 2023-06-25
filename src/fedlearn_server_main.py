@@ -52,7 +52,7 @@ if __name__ == '__main__':
     init_param = None
 
     SERVER_DIR = "../tmp/server"
-    model = DemoModel(None, SERVER_DIR)
+    model = DemoModel(SERVER_DIR)
     base_epoch = 0
 
     model_dict = model.load_local()
