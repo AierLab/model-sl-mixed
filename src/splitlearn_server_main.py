@@ -4,6 +4,8 @@ import os
 from splitlearn import Server
 import argparse
 from model import DemoModel
+from model.model_split_server import SplitServerModel
+from splitlearn.server import SplitServer
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -45,12 +47,14 @@ if __name__ == "__main__":
 
     # init server
     SERVER_DIR = "../tmp/server"
-    model = DemoModel(None, SERVER_DIR)
+    model = SplitServerModel(None, SERVER_DIR)
 
     model_dict = model.load_local()
     if model_dict:
         model.load_state_dict(model_dict["model_state_dict"])
         base_epoch = model_dict["epoch"]
 
-    server = Server(model, epoch_num, ckpt_path, host, port)
+    server = SplitServer(model, epoch_num, ckpt_path, host, port)
+
     server.run()
+    server.fit()

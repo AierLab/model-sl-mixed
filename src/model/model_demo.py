@@ -58,6 +58,7 @@ class DemoModel(AbstractModel):
 
             self.save_local(epoch, loss, optimizer.state_dict())
 
+
     def model_test(self, dataloader: DataLoader, device: torch.device = None) -> Tuple[float, float]:
         """
         Validate the network on the entire test set.
