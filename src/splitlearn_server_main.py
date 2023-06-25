@@ -43,7 +43,6 @@ if __name__ == "__main__":
     host = args.host
     port = int(args.port)
 
-
     # init server
     SERVER_DIR = "../tmp/server"
     model = SplitServerModel(None, SERVER_DIR)

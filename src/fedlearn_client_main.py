@@ -3,7 +3,6 @@ from fedlearn import FedClient
 from model import DemoModel
 
 if __name__ == '__main__':
-
     # run in separate terminal
     # CLIENT_DIR = "../tmp/client/c01"
     CLIENT_DIR = "../tmp/client/c02"

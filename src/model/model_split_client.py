@@ -11,6 +11,7 @@ from .model_abstract import AbstractModel
 from comn import AbstractClient
 from comn import AbstractServer
 
+
 class SplitClientModel(AbstractModel):
 
     def __init__(self, model_dir: str, model_layers) -> None:
@@ -30,7 +31,7 @@ class SplitClientModel(AbstractModel):
     def forward(self, x: torch.Tensor, layer_index: int) -> torch.Tensor:
         """Compute forward result of a specific model layer."""
         return self.layers[layer_index].forward(x)
-    
+
     def forward_all(self, input: torch.Tensor) -> torch.Tensor:
 
         """Compute forward result of all model layers."""
@@ -39,7 +40,7 @@ class SplitClientModel(AbstractModel):
         layer_index = 0
         server_data = None
         while layer_index < len(self.layers):
-            
+
             # If not the first layer, the input is the result from the server
             if server_data is not None:
                 input = pickle.loads(server_data)
@@ -50,7 +51,7 @@ class SplitClientModel(AbstractModel):
             # Compute the forward result of the tensor data
             data = self.forward(input, layer_index)
             # pickle the tensor data
-            serialized_data = pickle.dumps(data) 
+            serialized_data = pickle.dumps(data)
             # Save the tensor data to a local file
             torch.save(serialized_data, '../tmp/client/layer_{layer_index}_output.pt')
 
@@ -58,15 +59,14 @@ class SplitClientModel(AbstractModel):
             # TODO Don't need to send the data to the server if it is the last layer
             print("Sending intermediate result to the server")
             self.socket.send(serialized_data)
-            layer_index += 1   
+            layer_index += 1
 
             # receive the result from the server
             server_data = self.recv_data()
         return data
 
-
     def backward_all(self, loss):
-        
+
         """Compute backward result of all model layers."""
 
         # Wait for a connection
@@ -88,13 +88,13 @@ class SplitClientModel(AbstractModel):
             serialized_data = pickle.dumps(result)
             # Send the result back to the client
             client_socket.send(serialized_data)
-            layer_index -= 1   
-    
+            layer_index -= 1
+
     def recv_data(self):
         data = b""
         while True:
             packet = self.socket.recv(1024)
-            if not packet: 
+            if not packet:
                 print("No more data from client")
                 break
             data += packet
@@ -115,7 +115,6 @@ class SplitClientModel(AbstractModel):
             base_epoch = model_dict["epoch"]
             # base_loss = model_dict['loss'] # TODO not used
 
-        
         for epoch in range(base_epoch, epochs):
             for i, data in enumerate(self.client.train_loader, 0):
                 inputs, labels = data[0].to(self.device), data[1].to(self.device)
@@ -127,7 +126,6 @@ class SplitClientModel(AbstractModel):
                 optimizer.step()
                 print(f"Epoch: {epoch}, Batch: {i}, Loss: {loss.item()}")
             self.save_local(epoch, loss, optimizer.state_dict())
-            
 
     def model_test(self, dataloader: DataLoader, device: torch.device = None) -> Tuple[float, float]:
         """
@@ -135,4 +133,3 @@ class SplitClientModel(AbstractModel):
         return
         loss, accuracy
         """
-        

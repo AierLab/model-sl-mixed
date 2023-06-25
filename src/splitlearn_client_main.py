@@ -5,7 +5,6 @@ from model import SplitClientModel
 from splitlearn import SplitClient
 
 if __name__ == '__main__':
-
     # run in separate terminal
     # CLIENT_DIR = "../tmp/client/c01"
     CLIENT_DIR = "../tmp/client/c02"
@@ -29,7 +28,6 @@ if __name__ == '__main__':
     )
 
     model_layers = nn.Sequential(m1, m2, m3)
-
 
     # Init data and model.
     data = CifarData(data_dir=CLIENT_DIR)

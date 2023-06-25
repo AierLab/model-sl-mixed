@@ -11,6 +11,7 @@ from .model_abstract import AbstractModel
 from comn import AbstractClient
 from comn import AbstractServer
 
+
 class SplitServerModel(AbstractModel):
 
     def __init__(self, model_dir: str, model_layers) -> None:
@@ -30,7 +31,7 @@ class SplitServerModel(AbstractModel):
     def forward(self, x: torch.Tensor, layer_index: int) -> torch.Tensor:
         """Compute forward result of a specific model layer."""
         return self.layers[layer_index].forward(x)
-    
+
     def forward_all(self):
 
         """Compute forward result of all model layers."""
@@ -39,7 +40,7 @@ class SplitServerModel(AbstractModel):
         print("Waiting for a connection...")
         client_socket, client_address = self.socket.accept()
         print(f"Connection from {client_address}")
-        
+
         # iterate all layers
         layer_index = 0
         while layer_index < len(self.layers):
@@ -56,10 +57,10 @@ class SplitServerModel(AbstractModel):
             # Send the result back to the client
             print("Sending intermediate result back to the client")
             client_socket.send(serialized_data)
-            layer_index += 1   
+            layer_index += 1
 
     def backward_all(self):
-        
+
         """Compute backward result of all model layers."""
 
         # Wait for a connection
@@ -86,13 +87,13 @@ class SplitServerModel(AbstractModel):
             # Send the grads back to the client
             print("Sending intermediate result back to the client")
             client_socket.send(serialized_data)
-            layer_index -= 1   
-    
+            layer_index -= 1
+
     def recv_data(self, client_socket):
         data = b""
         while True:
             packet = client_socket.recv(1024)
-            if not packet: 
+            if not packet:
                 print("No more data from client")
                 break
             data += packet
@@ -116,12 +117,11 @@ class SplitServerModel(AbstractModel):
         #     self.save_local(epoch, loss, optimizer.state_dict())
 
         self.socket.listen(5)
-        
-        self.forward_all()  
+
+        self.forward_all()
         self.backward_all()
         optimizer.step()
         optimizer.zero_grad()
-            
 
     def model_test(self, dataloader: DataLoader, device: torch.device = None) -> Tuple[float, float]:
         """

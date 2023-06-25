@@ -31,21 +31,18 @@ class SplitClient(AbstractClient):
         loss, accuracy = self.model.model_test(self.testloader, self.device)
         print(f"loss: {loss}, accuracy{accuracy}")  # TODO refactor to log
         return float(loss), self.num_examples["testset"], {"accuracy": float(accuracy)}
-    
+
     def get_socket(self):
         return self.client_socket
-    
+
     def run(self):
         # Create a TCP/IP socket
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    
+
         try:
             self.client_socket.connect((self.host, self.port))
         except Exception as e:
             print(f"Could not connect to server: {e}")
             return
-        
-        self.model.set_socket(self.client_socket)
-    
-        
 
+        self.model.set_socket(self.client_socket)
