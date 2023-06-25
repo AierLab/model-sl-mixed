@@ -4,7 +4,6 @@ from torch.utils.data import DataLoader
 from torch.nn import CrossEntropyLoss
 
 from comn import AbstractSocket
-from model.model_split_abstract import AbstractSplitModel
 import pickle
 from abc import abstractmethod, ABC
 from typing import Tuple
@@ -17,10 +16,14 @@ from torch.utils.data import DataLoader
 from model import AbstractModel
 
 
-class SplitServerModel(AbstractSplitModel):
+class SplitServerModel(AbstractModel):
     def __init__(self, model_layers, socket: AbstractSocket, model_dir: str):
-        super().__init__(model_layers, socket, model_dir)
-
+        super().__init__(model_dir)
+        self.socket = None
+        # get all model layers
+        self.layers = nn.ModuleList(list(model_layers.children()))
+        self.server_data = None
+        self.socket = socket
 
     def forward(self, x: torch.Tensor = None) -> torch.Tensor:
         """Compute forward result of all model layers."""
@@ -28,7 +31,7 @@ class SplitServerModel(AbstractSplitModel):
         layer_index = 0
         while layer_index < len(self.layers):
             # receive the result from the server
-            self.server_data = self.socket.receive_data() # Server receive data first
+            self.server_data = self.socket.receive_data()  # Server receive data first
             x = pickle.loads(self.server_data)
             x = x.to(self.device)
 
