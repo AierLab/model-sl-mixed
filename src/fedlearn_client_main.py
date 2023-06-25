@@ -1,5 +1,5 @@
 from data import CifarData
-from fedlearn import Client
+from fedlearn import FedClient
 from model import DemoModel
 
 if __name__ == '__main__':
@@ -13,5 +13,5 @@ if __name__ == '__main__':
     data = CifarData(data_dir=CLIENT_DIR)
     model = DemoModel(None, model_dir=CLIENT_DIR)
 
-    client = Client(data, model)
+    client = FedClient(data, model)
     client.run()

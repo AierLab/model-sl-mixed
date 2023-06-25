@@ -1,11 +1,10 @@
 from comn import AbstractServer
 import socket
 import os
-from splitlearn import Server
+from splitlearn import SplitServer
 import argparse
 from model import DemoModel
-from model.model_split_server import SplitServerModel
-from splitlearn.server import SplitServer
+from model import SplitServerModel
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

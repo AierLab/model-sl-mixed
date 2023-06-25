@@ -10,7 +10,6 @@ import socket
 from .model_abstract import AbstractModel
 from comn import AbstractClient
 from comn import AbstractServer
-from splitlearn.server import SplitServer
 
 class SplitServerModel(AbstractModel):
 

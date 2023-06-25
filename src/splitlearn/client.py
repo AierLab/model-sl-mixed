@@ -1,7 +1,7 @@
 from comn import AbstractClient
 from model import AbstractModel
 from data import AbstractData
-from model.model_split_client import SplitClientModel
+from model import SplitClientModel
 import torch
 import socket
 

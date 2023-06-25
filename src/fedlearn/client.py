@@ -10,7 +10,7 @@ from model import AbstractModel, DemoModel
 from comn import AbstractClient
 
 
-class Client(fl.client.NumPyClient, AbstractClient):
+class FedClient(fl.client.NumPyClient, AbstractClient):
     def __init__(self, data: AbstractData, model: AbstractModel):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.epoch_num = 1

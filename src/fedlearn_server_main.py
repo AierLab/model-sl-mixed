@@ -1,7 +1,7 @@
 import argparse
 
 from model import DemoModel
-from fedlearn import Server
+from fedlearn import FedServer
 
 if __name__ == '__main__':
     # Start Flower server for three rounds of federated learning
@@ -60,5 +60,5 @@ if __name__ == '__main__':
         model.load_state_dict(model_dict["model_state_dict"])
         base_epoch = model_dict["epoch"]
 
-    server = Server(model, base_epoch, fc, ac)
+    server = FedServer(model, base_epoch, fc, ac)
     server.run()

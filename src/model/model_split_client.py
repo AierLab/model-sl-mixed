@@ -10,12 +10,11 @@ import socket
 from .model_abstract import AbstractModel
 from comn import AbstractClient
 from comn import AbstractServer
-from splitlearn.client import SplitClient
 
 class SplitClientModel(AbstractModel):
 
     def __init__(self, model_dir: str, model_layers) -> None:
-        super(SplitClientModel, self).__init__(model_dir)
+        super(SplitClientModel, self).__init__(None, model_dir)
         self.socket = None
         self.model_dir = model_dir
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")

@@ -32,7 +32,7 @@ class FedAvgSaveModel(fl.server.strategy.FedAvg):
         return weights
 
 
-class Server(AbstractServer):
+class FedServer(AbstractServer):
     def __init__(self, model: AbstractModel, base_epoch: int, fc, ac):
         # get weights of model
         init_weights = get_weights(model)

@@ -1,8 +1,8 @@
+from torch import nn
+
 from data import CifarData
-from fedlearn import Client
-from model.model_split_client import SplitClientModel  
-from torch import nn 
-from model.model_split_client import SplitClient
+from model import SplitClientModel
+from splitlearn import SplitClient
 
 if __name__ == '__main__':
 
@@ -37,4 +37,4 @@ if __name__ == '__main__':
 
     client = SplitClient(data, model, host="localhost", port=10086)
     client.run()
-    client.fit()
+    client.fit(None)
