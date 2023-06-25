@@ -24,6 +24,7 @@ class SplitClientModel(AbstractModel):
         self.layers = nn.ModuleList(list(model_layers.children()))
         self.server_data = None
         self.socket = socket
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Compute forward result of all model layers."""
         # iterate all layers

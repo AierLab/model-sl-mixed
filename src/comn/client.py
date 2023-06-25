@@ -1,5 +1,4 @@
 import os
-
 import socket
 
 
@@ -17,19 +16,26 @@ class ClientSocket:
     def send_data(self, data: bytes):
         """Sends raw data through the socket."""
         try:
-            self.client_socket.sendall(data)
+            self.client_socket.sendall(data + b"EOF")
+            #print(f"Sent {data}")
+            #print(repr(data))
+            #self.client_socket.sendall(b"EOF")
+            #print("EOF sent")
         except Exception as e:
             print(f"Error sending data: {e}")
 
     def receive_data(self) -> bytes:
         """Receives raw data from the socket."""
-        data = b""
+        data = []
         try:
             while True:
-                chunk = self.client_socket.recv(1024)
-                if not chunk:
+                chunk = self.client_socket.recv(4096)
+                if b"EOF" in chunk:
+                    data.append(chunk[:-3])
                     break  # no more data
-                data += chunk
+                data.append(chunk)
+                data = b"".join(data)
+                print(repr(data))
             return data
         except Exception as e:
             print(f"Error receiving data: {e}")
@@ -44,7 +50,10 @@ class ClientSocket:
                 # Loop over the file
                 while True:
                     data = f.read(1024)  # read file by chunks of size 1024 bytes
+                    print(f"Sending {data}")
                     if not data:
+                        print("EOF reached")
+                        self.client_socket.sendall(b"EOF")
                         break  # end of file reached
                     self.client_socket.sendall(data)
         except Exception as e:

@@ -18,11 +18,12 @@ class ServerSocket:
 
     def send_data(self, data: bytes):
         """Sends raw data through the socket."""
+        
         print('waiting for a connection')
         client_socket, client_address = self.server_socket.accept()
         print('client connected:', client_address)
         try:
-            client_socket.sendall(data)
+            client_socket.sendall(data + b"EOF")
         except Exception as e:
             print(f"Error sending data: {e}")
         finally:
@@ -31,16 +32,20 @@ class ServerSocket:
 
     def receive_data(self) -> bytes:
         """Receives raw data from the socket."""
-        print('waiting for a connection')
+        print('recv: waiting for a connection')
         client_socket, client_address = self.server_socket.accept()
         print('client connected:', client_address)
-        data = b""
+
+        data = []
         try:
             while True:
-                chunk = client_socket.recv(1024)
-                if not chunk:
+                chunk = client_socket.recv(4096)
+                if b"EOF" in chunk:
+                    data.append(chunk[:-3])
+                    print("EOF received")
                     break  # no more data
-                data += chunk
+                data.append(chunk)
+            data = b"".join(data)
             print(repr(data))
             return data
         except Exception as e:
