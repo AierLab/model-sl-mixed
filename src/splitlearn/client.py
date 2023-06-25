@@ -4,6 +4,7 @@ from data import AbstractData
 from model import SplitClientModel
 import torch
 import socket
+import helper
 
 
 class SplitClient(AbstractClient):
@@ -17,15 +18,9 @@ class SplitClient(AbstractClient):
         self.trainloader, self.testloader = data.trainloader, data.testloader
         self.num_examples = data.get_number_examples()
 
-    def get_parameters(self):
-        return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
-
-    # def set_parameters(self, ckpt_path):
-    #     self.model.load_state_dict(torch.load(ckpt_path))
-
     def fit(self, config):
         self.model.model_train(self.trainloader, self.epoch_num, self.device)
-        return self.get_parameters(), self.num_examples["trainset"], {}
+        return helper.get_weights(self.model), self.num_examples["trainset"], {}
 
     def evaluate(self, config):
         loss, accuracy = self.model.model_test(self.testloader, self.device)

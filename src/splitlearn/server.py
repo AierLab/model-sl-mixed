@@ -6,6 +6,7 @@ import socket
 import os
 import torch
 
+import helper
 
 class SplitServer(AbstractServer):
     def __init__(self, model: SplitServerModel, epoch_num: int, ckpt_path: str, host: str, port: int):
@@ -32,15 +33,9 @@ class SplitServer(AbstractServer):
     def get_socket(self):
         return self.server_socket
 
-    def get_parameters(self):
-        return [val.cpu().numpy() for _, val in self.model.state_dict().items()]
-
-    # def set_parameters(self):
-    #     self.model.load_state_dict(torch.load(self.ckpt_path))
-
     def fit(self):
         self.model.model_train(self.epoch_num, self.device)
-        return self.get_parameters(), self.num_examples["trainset"], {}
+        return helper.get_weights(self.model), self.num_examples["trainset"], {}
 
     def run(self):
         # Create a TCP/IP socket
