@@ -1,8 +1,7 @@
 from data import AbstractData
 import torch
-import socket
 import helper
-from model import AbstractSplitModel, SplitClientModel
+from model import SplitClientModel
 
 
 class SplitClient:

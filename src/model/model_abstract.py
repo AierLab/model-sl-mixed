@@ -22,7 +22,7 @@ class AbstractModel(nn.Module, ABC):
         pass
 
     @abstractmethod
-    def model_train(self, dataloader: DataLoader, epochs: int, device: torch.device = None):
+    def model_train(self, dataloader: DataLoader, epochs: int, device: torch.device):
         # TODO better to have loss and optimizer defied outside, and pass as parameters.
         pass
 

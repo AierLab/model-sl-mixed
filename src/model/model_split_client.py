@@ -2,7 +2,7 @@ import torch
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 
-from comn import AbstractSocket
+from comn import ClientSocket
 import pickle
 from abc import abstractmethod, ABC
 from typing import Tuple
@@ -17,7 +17,7 @@ from torch.nn import CrossEntropyLoss
 
 
 class SplitClientModel(AbstractModel):
-    def __init__(self, model_layers, socket: AbstractSocket, model_dir: str):
+    def __init__(self, model_layers, socket: ClientSocket, model_dir: str):
         super().__init__(model_dir)
         self.socket = None
         # get all model layers
@@ -52,6 +52,7 @@ class SplitClientModel(AbstractModel):
             layer_index += 1
 
             # receive the result from the server
+            print("Waiting intermediate result from the server")
             self.server_data = self.socket.receive_data()
         return x
 
@@ -64,9 +65,12 @@ class SplitClientModel(AbstractModel):
 
         # Send the result back to the client
         serialized_data = pickle.dumps(grads)
+
+        print("Sending grads result to the server")
         self.socket.send_data(serialized_data)
 
         while layer_index >= 0:
+            print("Waiting intermediate result from the server")
             serialized_data = self.socket.receive_data()
             grads = pickle.loads(serialized_data)
 
@@ -74,6 +78,7 @@ class SplitClientModel(AbstractModel):
 
             # Send the result back to the client
             serialized_data = pickle.dumps(grads)
+            print("Sending grads result to the server")
             self.socket.send_data(serialized_data)
 
             layer_index -= 1
@@ -83,7 +88,7 @@ class SplitClientModel(AbstractModel):
             # print("Sending intermediate result back to the client")
             # Compute the backward result of the tensor data
 
-    def model_train(self, dataloader: DataLoader, epochs: int, device: torch.device = None):
+    def model_train(self, dataloader: DataLoader, epochs: int, device: torch.device):
         """
         Train the network on the training set.
         """

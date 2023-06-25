@@ -3,7 +3,7 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torch.nn import CrossEntropyLoss
 
-from comn import AbstractSocket
+from comn import ServerSocket
 import pickle
 from abc import abstractmethod, ABC
 from typing import Tuple
@@ -17,7 +17,7 @@ from model import AbstractModel
 
 
 class SplitServerModel(AbstractModel):
-    def __init__(self, model_layers, socket: AbstractSocket, model_dir: str):
+    def __init__(self, model_layers, socket: ServerSocket, model_dir: str):
         super().__init__(model_dir)
         self.socket = None
         # get all model layers
@@ -31,6 +31,7 @@ class SplitServerModel(AbstractModel):
         layer_index = 0
         while layer_index < len(self.layers):
             # receive the result from the server
+            print("Waiting intermediate result from the client")
             self.server_data = self.socket.receive_data()  # Server receive data first
             x = pickle.loads(self.server_data)
             x = x.to(self.device)
@@ -48,7 +49,7 @@ class SplitServerModel(AbstractModel):
 
             # Send the result to the server
             # TODO Don't need to send the data to the server if it is the last layer
-            print("Sending intermediate result to the server")
+            print("Sending intermediate result to the client")
             self.socket.send_data(serialized_data)
             layer_index += 1
         return x
@@ -59,6 +60,7 @@ class SplitServerModel(AbstractModel):
         layer_index = len(self.layers) - 1
 
         while layer_index >= 0:
+            print("Waiting intermediate grads from the client")
             serialized_data = self.socket.receive_data()
             grads = pickle.loads(serialized_data)
 
@@ -66,6 +68,7 @@ class SplitServerModel(AbstractModel):
 
             # Send the result back to the client
             serialized_data = pickle.dumps(grads)
+            print("Sending intermediate result to the client")
             self.socket.send_data(serialized_data)
 
             layer_index -= 1
@@ -75,7 +78,7 @@ class SplitServerModel(AbstractModel):
             # print("Sending intermediate result back to the client")
             # Compute the backward result of the tensor data
 
-    def model_train(self, dataloader: DataLoader = None, epochs: int = None, device: torch.device = None):
+    def model_train(self, device: torch.device, dataloader: DataLoader = None, epochs: int = None):
         """
         Train the network on the training set.
         """
