@@ -32,11 +32,12 @@ class SplitClientModel(AbstractModel):
         """Compute forward result of all model layers."""
         # iterate all layers
         layer_index = 0
+        server_data = None
         while layer_index < len(self.layers):
 
             # If not the first layer, the input is the result from the server
-            if self.server_data is not None:
-                x = pickle.loads(self.server_data)
+            if server_data is not None:
+                x = pickle.loads(server_data)
                 x = x.to(self.device)
                 # # Save the input tensor to a local file # FIXME never used, may need to be removed
                 # torch.save(x, f'../tmp/client/{type(self).__name__}/layer_{layer_index}_input.pt')
@@ -61,14 +62,13 @@ class SplitClientModel(AbstractModel):
 
                 # receive the result from the server
                 print("Waiting intermediate result from the server")
-                self.server_data = self.socket.receive_data()
-        self.server_data = None
+                server_data = self.socket.receive_data()
         return x
 
     def backward(self):
         """Compute backward result of all model layers."""
 
-        print("Start backward computation")
+        print("Start backward propagation")
         # iterate all layers in reverse order
         layer_index = len(self.layers) - 1
         self.forward_results.pop()
@@ -129,10 +129,10 @@ class SplitClientModel(AbstractModel):
                 optimizer.zero_grad()
                 outputs = self.forward(inputs)
                 self.loss = criterion(outputs, labels)
-                self.backward()
+                self.loss.backward()
                 optimizer.step()
-                print(f"Epoch: {epoch}, Batch: {i}, Loss: {loss.item()}")
-            self.save_local(epoch, loss, optimizer.state_dict())
+                print(f"Epoch: {epoch}, Batch: {i}, Loss: {self.loss.item()}")
+            self.save_local(epoch, self.loss, optimizer.state_dict())
 
     def model_test(self, dataloader: DataLoader, device: torch.device = None) -> Tuple[float, float]:
         """
