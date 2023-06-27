@@ -19,7 +19,10 @@ if __name__ == '__main__':
     m3 = nn.Sequential(
         nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
         nn.ReLU(),
-        nn.MaxPool2d(kernel_size=2, stride=2)
+        nn.MaxPool2d(kernel_size=2, stride=2),
+        nn.Flatten(),
+        nn.Linear(2048, 120),
+        nn.Linear(120, 10)
     )
 
     model_layers = nn.Sequential(m1, m3)
