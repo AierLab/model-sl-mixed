@@ -20,7 +20,8 @@ if __name__ == '__main__':
         nn.Flatten(), 
         nn.Linear(8 * 8 * 64, 64),
         nn.Linear(64, 32),
-        nn.Linear(32, 10))
+        nn.Linear(32, 10)
+    )
 
     model_layers = nn.Sequential(m1, m3)
 

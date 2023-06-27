@@ -55,7 +55,6 @@ class SplitServerModel(AbstractModel):
             # torch.save(serialized_data, f'../tmp/client/{type(self).__name__}/layer_{layer_index}_output.pt')
 
             # Send the result to the server
-            # TODO Don't need to send the data to the server if it is the last layer
             print("Sending forward intermediate result to the client")
             self.socket.send_data(serialized_data)
             layer_index += 1
@@ -108,7 +107,7 @@ class SplitServerModel(AbstractModel):
         while True:
             optimizer.zero_grad()
             self.forward()
-            self.backward()
+            # self.backward() # TODO backward is wired
 
     def model_test(self, dataloader: DataLoader, device: torch.device = None) -> Tuple[float, float]:
         """
