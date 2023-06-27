@@ -6,7 +6,6 @@ class ServerSocket:
     def __init__(self, host: str, port: int):
         # Create a TCP/IP socket
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
         server_address = (host, port)
         print(f"Starting server on {host}:{port}")
         try:
@@ -16,43 +15,45 @@ class ServerSocket:
         except Exception as e:
             print(f"Could not start server: {e}")
 
+        print('recv: waiting for a connection')
+        self.client_socket, client_address = self.server_socket.accept()
+        print('client connected:', client_address)
+        
     def send_data(self, data: bytes):
         """Sends raw data through the socket."""
-        
-        print('waiting for a connection')
-        client_socket, client_address = self.server_socket.accept()
-        print('client connected:', client_address)
+
+        # print('waiting for a connection')
+        # client_socket, client_address = self.server_socket.accept()
+        # print('client connected:', client_address)
         try:
-            client_socket.sendall(data + b"EOF")
+            self.client_socket.sendall(data + b"EOF")
         except Exception as e:
             print(f"Error sending data: {e}")
-        finally:
-            print(f"client deleted")
-            client_socket.close()
+        # finally:
+        #     print(f"client deleted")
+        #     client_socket.close()
 
     def receive_data(self) -> bytes:
+        
         """Receives raw data from the socket."""
-        print('recv: waiting for a connection')
-        client_socket, client_address = self.server_socket.accept()
-        print('client connected:', client_address)
 
         data = []
         try:
             while True:
-                chunk = client_socket.recv(4096)
+                chunk = self.client_socket.recv(4096)
                 if b"EOF" in chunk:
                     data.append(chunk[:-3])
-                    print("EOF received")
+                    #print("EOF received")
                     break  # no more data
                 data.append(chunk)
             data = b"".join(data)
-            print(repr(data))
+            #print(repr(data))
             return data
         except Exception as e:
             print(f"Error receiving data: {e}")
-        finally:
-            print(f"client deleted")
-            client_socket.close()
+        # finally:
+        #     print(f"client deleted")
+        #     client_socket.close()
 
     def send_file(self, file_path):
         print('waiting for a connection')

@@ -22,64 +22,83 @@ class SplitClientModel(AbstractModel):
         self.socket = None
         # get all model layers
         self.layers = nn.ModuleList(list(model_layers.children()))
-        self.server_data = None
+        self.loss = None
+        self.optimizers = [Adam(layer.parameters(), lr=0.001,) for layer in self.layers]
         self.socket = socket
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.forward_results = []
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Compute forward result of all model layers."""
-        # iterate all layers
-        layer_index = 0
-        while layer_index < len(self.layers):
 
-            # If not the first layer, the input is the result from the server
-            if self.server_data is not None:
-                x = pickle.loads(self.server_data)
-                x = x.to(self.device)
-                # # Save the input tensor to a local file # FIXME never used, may need to be removed
-                # torch.save(x, f'../tmp/client/{type(self).__name__}/layer_{layer_index}_input.pt')
+        layer_index = 0
+        # Compute the forward result of the tensor data
+        self.forward_results.append(self.layers[layer_index](x))
+        #x = self.layers[layer_index](x)
+        #self.forward_results.append(x.clone())
+
+        # pickle the tensor data
+        #serialized_data = pickle.dumps(x)
+        serialized_data = pickle.dumps(self.forward_results[-1])
+        # # Save the tensor data to a local file # FIXME never used, may need to be removed
+        # torch.save(serialized_data, f'../tmp/client/{type(self).__name__}/layer_{layer_index}_output.pt')
+
+        
+        # iterate all layers, start from the second layer
+        while layer_index < len(self.layers) - 1:
+            # Send the result to the server
+            # TODO Don't need to send the data to the server if it is the last layer
+            print("Sending forward intermediate result to the server")
+            self.socket.send_data(serialized_data)
+
+            # receive the result from the server
+            print("Waiting forward intermediate result from the server")
+            x = self.socket.receive_data()
+            x = pickle.loads(x)
+            x = x.to(self.device)
+            self.forward_results.append(x.clone())
+            # # Save the input tensor to a local file # FIXME never used, may need to be removed
+            # torch.save(x, f'../tmp/client/{type(self).__name__}/layer_{layer_index}_input.pt')
+
+            layer_index += 1
 
             # Compute the forward result of the tensor data
             x = self.layers[layer_index](x)
-
-            # pickle the tensor data
+            self.forward_results.append(x.clone())
             serialized_data = pickle.dumps(x)
-            # # Save the tensor data to a local file # FIXME never used, may need to be removed
-            # torch.save(serialized_data, f'../tmp/client/{type(self).__name__}/layer_{layer_index}_output.pt')
-
-            # Send the result to the server
-            # TODO Don't need to send the data to the server if it is the last layer
-            print("Sending intermediate result to the server")
-            self.socket.send_data(serialized_data)
-            layer_index += 1
-
-            # receive the result from the server
-            print("Waiting intermediate result from the server")
-            self.server_data = self.socket.receive_data()
         return x
 
     def backward(self):
         """Compute backward result of all model layers."""
+
+        print("Start backward computation")
         # iterate all layers in reverse order
         layer_index = len(self.layers) - 1
+        self.forward_results.pop()
+        self.loss.backward()
+        self.optimizers[layer_index].step()
+        self.optimizers[layer_index].zero_grad()
 
-        grads = self.layers[layer_index].backward()
+        grads = self.forward_results.pop().grad
 
         # Send the result back to the client
         serialized_data = pickle.dumps(grads)
 
-        print("Sending grads result to the server")
+        print("Sending first grads result to the server")
         self.socket.send_data(serialized_data)
 
+        layer_index -= 1
+
         while layer_index >= 0:
-            print("Waiting intermediate result from the server")
+            print("Waiting intermediate grads result from the server")
             serialized_data = self.socket.receive_data()
             grads = pickle.loads(serialized_data)
 
-            grads = self.layers[layer_index].backward(grads)
+            self.forward_results.pop().backward(grads)
 
             # Send the result back to the client
             serialized_data = pickle.dumps(grads)
-            print("Sending grads result to the server")
+            print("Sending intermediate grads result to the server")
             self.socket.send_data(serialized_data)
 
             layer_index -= 1
@@ -112,9 +131,10 @@ class SplitClientModel(AbstractModel):
                 inputs, labels = inputs.to(device), labels.to(device)
                 optimizer.zero_grad()
                 outputs = self.forward(inputs)
-                loss = criterion(outputs, labels)
+
+                self.loss = criterion(outputs, labels)
                 self.backward()
-                optimizer.step()
+                #optimizer.step()
                 print(f"Epoch: {epoch}, Batch: {i}, Loss: {loss.item()}")
             self.save_local(epoch, loss, optimizer.state_dict())
 
