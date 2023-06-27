@@ -1,110 +1,101 @@
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from torch.optim import Adam
 from torch.utils.data import DataLoader
-import os
-from typing import Tuple
-import pickle
-import socket
 
-from .model_abstract import AbstractModel
-from comn import AbstractClient
-from comn import AbstractServer
+from comn import ClientSocket
+import pickle
+from abc import abstractmethod, ABC
+from typing import Tuple
+
+import torch.nn as nn
+import torch
+from torch.optim import Adam
+from torch.utils.data import DataLoader
+
+from model import AbstractModel
+from torch.nn import CrossEntropyLoss
 
 
 class SplitClientModel(AbstractModel):
-
-    def __init__(self, model_dir: str, model_layers) -> None:
-        super(SplitClientModel, self).__init__(None, model_dir)
+    def __init__(self, model_layers, socket: ClientSocket, model_dir: str):
+        super().__init__(model_dir)
         self.socket = None
-        self.model_dir = model_dir
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-        # get all model layers in server-side
-        self.layers = []
-        for layer in model_layers.children():
-            self.layers.append(layer)
-
-    def set_socket(self, socket: socket):
+        # get all model layers
+        self.layers = nn.ModuleList(list(model_layers.children()))
+        self.server_data = None
         self.socket = socket
-
-    def forward(self, x: torch.Tensor, layer_index: int) -> torch.Tensor:
-        """Compute forward result of a specific model layer."""
-        return self.layers[layer_index].forward(x)
-
-    def forward_all(self, input: torch.Tensor) -> torch.Tensor:
-
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Compute forward result of all model layers."""
-
         # iterate all layers
         layer_index = 0
-        server_data = None
         while layer_index < len(self.layers):
 
             # If not the first layer, the input is the result from the server
-            if server_data is not None:
-                input = pickle.loads(server_data)
-                input.to(self.device)
-                # Save the input tensor to a local file
-                torch.save(input, '../tmp/client/layer_{layer_index}_input.pt')
+            if self.server_data is not None:
+                x = pickle.loads(self.server_data)
+                x = x.to(self.device)
+                # # Save the input tensor to a local file # FIXME never used, may need to be removed
+                # torch.save(x, f'../tmp/client/{type(self).__name__}/layer_{layer_index}_input.pt')
 
             # Compute the forward result of the tensor data
-            data = self.forward(input, layer_index)
+            x = self.layers[layer_index](x)
+
             # pickle the tensor data
-            serialized_data = pickle.dumps(data)
-            # Save the tensor data to a local file
-            torch.save(serialized_data, '../tmp/client/layer_{layer_index}_output.pt')
+            serialized_data = pickle.dumps(x)
+            # # Save the tensor data to a local file # FIXME never used, may need to be removed
+            # torch.save(serialized_data, f'../tmp/client/{type(self).__name__}/layer_{layer_index}_output.pt')
 
             # Send the result to the server
             # TODO Don't need to send the data to the server if it is the last layer
             print("Sending intermediate result to the server")
-            self.socket.send(serialized_data)
+            self.socket.send_data(serialized_data)
             layer_index += 1
 
             # receive the result from the server
-            server_data = self.recv_data()
-        return data
+            print("Waiting intermediate result from the server")
+            self.server_data = self.socket.receive_data()
+        return x
 
-    def backward_all(self, loss):
-
+    def backward(self):
         """Compute backward result of all model layers."""
-
-        # Wait for a connection
-        print("Waiting for a connection...")
-        client_socket, client_address = self.socket.accept()
-        print(f"Connection from {client_address}")
-
         # iterate all layers in reverse order
         layer_index = len(self.layers) - 1
-        while layer_index >= 0:
-            grads = self.recv_data(client_socket)
-            tensor_data = pickle.loads(grads)
 
-            # Save the tensor data to a local file
-            torch.save(tensor_data, '../tmp/client/layer_{layer_index}_grads_input.pt')
-            print("Sending intermediate result back to the client")
-            # Compute the backward result of the tensor data
-            result = self.backward(tensor_data, layer_index)
-            serialized_data = pickle.dumps(result)
+        grads = self.layers[layer_index].backward()
+
+        # Send the result back to the client
+        serialized_data = pickle.dumps(grads)
+
+        print("Sending grads result to the server")
+        self.socket.send_data(serialized_data)
+
+        while layer_index >= 0:
+            print("Waiting intermediate result from the server")
+            serialized_data = self.socket.receive_data()
+            grads = pickle.loads(serialized_data)
+
+            grads = self.layers[layer_index].backward(grads)
+
             # Send the result back to the client
-            client_socket.send(serialized_data)
+            serialized_data = pickle.dumps(grads)
+            print("Sending grads result to the server")
+            self.socket.send_data(serialized_data)
+
             layer_index -= 1
 
-    def recv_data(self):
-        data = b""
-        while True:
-            packet = self.socket.recv(1024)
-            if not packet:
-                print("No more data from client")
-                break
-            data += packet
-        return data
+            # # Save the tensor data to a local file # FIXME never used, may need to be removed
+            # torch.save(tensor_data, f'../tmp/client/layer_{layer_index}_grads_input.pt')
+            # print("Sending intermediate result back to the client")
+            # Compute the backward result of the tensor data
 
-    def model_train(self, epochs: int):
-        """Train the network on the training set."""
-        self.to(self.device)
-        criterion = torch.nn.CrossEntropyLoss()
-        optimizer = torch.optim.Adam(self.parameters(), lr=0.001)
+    def model_train(self, dataloader: DataLoader, epochs: int, device: torch.device):
+        """
+        Train the network on the training set.
+        """
+        self.to(device)
+        criterion = CrossEntropyLoss()
+        optimizer = Adam(self.parameters(), lr=0.001)
         base_epoch = 0
         # base_loss = None # TODO not used
 
@@ -116,13 +107,13 @@ class SplitClientModel(AbstractModel):
             # base_loss = model_dict['loss'] # TODO not used
 
         for epoch in range(base_epoch, epochs):
-            for i, data in enumerate(self.client.train_loader, 0):
-                inputs, labels = data[0].to(self.device), data[1].to(self.device)
+            loss = None
+            for i, (inputs, labels) in enumerate(dataloader, 0):
+                inputs, labels = inputs.to(device), labels.to(device)
                 optimizer.zero_grad()
-                outputs = self.forward_all(inputs)
+                outputs = self.forward(inputs)
                 loss = criterion(outputs, labels)
-                # TODO: backward_all
-                self.backward_all(loss)
+                self.backward()
                 optimizer.step()
                 print(f"Epoch: {epoch}, Batch: {i}, Loss: {loss.item()}")
             self.save_local(epoch, loss, optimizer.state_dict())
@@ -133,3 +124,5 @@ class SplitClientModel(AbstractModel):
         return
         loss, accuracy
         """
+        # TODO: Implement this method
+        pass

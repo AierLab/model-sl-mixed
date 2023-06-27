@@ -1,2 +1,2 @@
-from .client_abstract import AbstractClient
-from .server_abstract import AbstractServer
+from .client import ClientSocket
+from .server import ServerSocket
