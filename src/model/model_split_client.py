@@ -32,19 +32,19 @@ class SplitClientModel(AbstractModel):
         # iterate all layers
         layer_index = 0
         server_data = None
-        self.forward_results.append(x)
         while layer_index < len(self.layers):
             # If not the first layer, the input is the result from the server
             if server_data is not None:
                 x = pickle.loads(server_data)
                 x = x.to(self.device)
-                self.forward_results.append(x)
                 # # Save the input tensor to a local file # FIXME never used, may need to be removed
                 # torch.save(x, f'../tmp/client/{type(self).__name__}/layer_{layer_index}_input.pt')
 
             # Compute the forward result of the tensor data
+            self.forward_results.append(x)
             x = self.layers[layer_index](x)
             self.forward_results.append(x)
+
 
             layer_index += 1
 
@@ -91,19 +91,19 @@ class SplitClientModel(AbstractModel):
 
         layer_index -= 1
 
-        forward_result = self.forward_results.pop()
-        while layer_index > 0: # except the first one
-            last_forward_result = forward_result
+        while layer_index >= 0: # except the first one
+            last_forward_result = self.forward_results.pop()
 
             print("Waiting intermediate grads result from the server")
             serialized_data = self.socket.receive_data()
-            last_forward_result.grads = pickle.loads(serialized_data)
+            last_forward_result.grad = pickle.loads(serialized_data)
 
             forward_result = self.forward_results.pop()
-            forward_result.grad = torch.autograd.grad(outputs=last_forward_result,
-                                                      inputs=forward_result,
-                                                      grad_outputs=torch.ones_like(last_forward_result),
-                                                      allow_unused=True)[0]
+            if layer_index != 0: # not the first layer, don't need to calculate it for the first layer
+                forward_result.grad = torch.autograd.grad(outputs=last_forward_result,
+                                                          inputs=forward_result,
+                                                          grad_outputs=torch.ones_like(last_forward_result),
+                                                          allow_unused=True)[0]
             self.optimizers[layer_index].step()
             self.optimizers[layer_index].zero_grad()
 
@@ -118,6 +118,7 @@ class SplitClientModel(AbstractModel):
             # torch.save(tensor_data, f'../tmp/client/layer_{layer_index}_grads_input.pt')
             # print("Sending intermediate result back to the client")
             # Compute the backward result of the tensor data
+        self.forward_results = []
 
     def model_train(self, dataloader: DataLoader, epochs: int, device: torch.device):
         """

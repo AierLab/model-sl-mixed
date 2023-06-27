@@ -22,7 +22,6 @@ class SplitServerModel(AbstractModel):
         self.socket = None
         # get all model layers
         self.layers = nn.ModuleList(list(model_layers.children()))
-        self.server_data = None
         self.socket = socket
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.forward_results = []
@@ -35,15 +34,15 @@ class SplitServerModel(AbstractModel):
         while layer_index < len(self.layers):
             # receive the result from the server
             print("Waiting forward intermediate result from the client")
-            self.server_data = self.socket.receive_data()  # Server receive data first
-            x = pickle.loads(self.server_data)
+            server_data = self.socket.receive_data()  # Server receive data first
+            x = pickle.loads(server_data)
             x = x.to(self.device)
-            self.forward_results.append(x)
 
             # # Save the input tensor to a local file # FIXME never used, may need to be removed
             # torch.save(x, f'../tmp/client/{type(self).__name__}/layer_{layer_index}_input.pt')
 
             # Compute the forward result of the tensor data
+            self.forward_results.append(x)
             x = self.layers[layer_index](x)
             self.forward_results.append(x)
 
@@ -63,9 +62,8 @@ class SplitServerModel(AbstractModel):
         # iterate all layers in reverse order
         layer_index = len(self.layers) - 1
 
-        forward_result = self.forward_results.pop()
         while layer_index >= 0:
-            last_forward_result = forward_result
+            last_forward_result = self.forward_results.pop()
 
             print("Waiting intermediate grads from the client")
             serialized_data = self.socket.receive_data()
@@ -91,6 +89,7 @@ class SplitServerModel(AbstractModel):
             # torch.save(tensor_data, f'../tmp/client/layer_{layer_index}_grads_input.pt')
             # print("Sending intermediate result back to the client")
             # Compute the backward result of the tensor data
+        self.forward_results = []
 
     def model_train(self, device: torch.device, dataloader: DataLoader = None, epochs: int = None):
         """
