@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 from comn import ClientSocket
 import pickle
 from abc import abstractmethod, ABC
-from typing import Tuple
+from typing import Tuple, List
 
 import torch.nn as nn
 import torch
@@ -22,31 +22,30 @@ class SplitClientModel(AbstractModel):
         self.socket = None
         # get all model layers
         self.layers = nn.ModuleList(list(model_layers.children()))
-        self.loss = None
-        self.optimizers = [Adam(layer.parameters(), lr=0.001,) for layer in self.layers]
+        self.optimizers = [Adam(layer.parameters(), lr=0.001, ) for layer in self.layers]
         self.socket = socket
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self.forward_results = []
+        self.forward_results: List[torch.Tensor] = []
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Compute forward result of all model layers."""
         # iterate all layers
         layer_index = 0
         server_data = None
+        self.forward_results.append(x)
         while layer_index < len(self.layers):
-
             # If not the first layer, the input is the result from the server
             if server_data is not None:
                 x = pickle.loads(server_data)
                 x = x.to(self.device)
+                self.forward_results.append(x)
                 # # Save the input tensor to a local file # FIXME never used, may need to be removed
                 # torch.save(x, f'../tmp/client/{type(self).__name__}/layer_{layer_index}_input.pt')
 
             # Compute the forward result of the tensor data
             x = self.layers[layer_index](x)
-            
-            # TODO this implementation need double check
-            self.forward_results.append(x.clone())
+            self.forward_results.append(x)
+
             layer_index += 1
 
             # Not communicate with server in the end of inference.
@@ -65,36 +64,51 @@ class SplitClientModel(AbstractModel):
                 server_data = self.socket.receive_data()
         return x
 
-    def backward(self):
+    def backward(self, loss: torch.Tensor):
         """Compute backward result of all model layers."""
 
         print("Start backward propagation")
         # iterate all layers in reverse order
         layer_index = len(self.layers) - 1
-        self.forward_results.pop()
-        self.loss.backward()
+
+        # last forward result
+        last_forward_result = self.forward_results.pop()
+        last_forward_result.grad = torch.autograd.grad(outputs=loss, inputs=last_forward_result)[0] # first output is the result
         self.optimizers[layer_index].step()
         self.optimizers[layer_index].zero_grad()
 
-        grads = self.forward_results.pop().grad
+        # preparing grad for cloud layers
+        forward_result = self.forward_results.pop()
+        forward_result.grad = torch.autograd.grad(outputs=last_forward_result,
+                                                  inputs=forward_result,
+                                                  grad_outputs=torch.ones_like(last_forward_result),
+                                                  allow_unused=True)[0]
 
-        # Send the result back to the client
-        serialized_data = pickle.dumps(grads)
-
+        # Send the result back to the server
+        serialized_data = pickle.dumps(forward_result.grad)
         print("Sending first grads result to the server")
         self.socket.send_data(serialized_data)
 
         layer_index -= 1
 
-        while layer_index >= 0:
+        forward_result = self.forward_results.pop()
+        while layer_index > 0: # except the first one
+            last_forward_result = forward_result
+
             print("Waiting intermediate grads result from the server")
             serialized_data = self.socket.receive_data()
-            grads = pickle.loads(serialized_data)
+            last_forward_result.grads = pickle.loads(serialized_data)
 
-            self.forward_results.pop().backward(grads)
+            forward_result = self.forward_results.pop()
+            forward_result.grad = torch.autograd.grad(outputs=last_forward_result,
+                                                      inputs=forward_result,
+                                                      grad_outputs=torch.ones_like(last_forward_result),
+                                                      allow_unused=True)[0]
+            self.optimizers[layer_index].step()
+            self.optimizers[layer_index].zero_grad()
 
             # Send the result back to the client
-            serialized_data = pickle.dumps(grads)
+            serialized_data = pickle.dumps(forward_result.grad)
             print("Sending intermediate grads result to the server")
             self.socket.send_data(serialized_data)
 
@@ -122,17 +136,16 @@ class SplitClientModel(AbstractModel):
             base_epoch = model_dict["epoch"]
             # base_loss = model_dict['loss'] # TODO not used
 
-        for epoch in range(base_epoch, base_epoch+epochs):
+        for epoch in range(base_epoch, base_epoch + epochs):
             loss: torch.Tensor
             for i, (inputs, labels) in enumerate(dataloader, 0):
                 inputs, labels = inputs.to(device), labels.to(device)
                 optimizer.zero_grad()
                 outputs = self.forward(inputs)
-                self.loss = criterion(outputs, labels)
-                self.loss.backward()
-                optimizer.step()
-                print(f"Epoch: {epoch}, Batch: {i}, Loss: {self.loss.item()}")
-            self.save_local(epoch, self.loss, optimizer.state_dict())
+                loss = criterion(outputs, labels)
+                self.backward(loss)
+                print(f"Epoch: {epoch}, Batch: {i}, Loss: {loss.item()}")
+            self.save_local(epoch, loss, optimizer.state_dict())
 
     def model_test(self, dataloader: DataLoader, device: torch.device = None) -> Tuple[float, float]:
         """

@@ -38,16 +38,14 @@ class SplitServerModel(AbstractModel):
             self.server_data = self.socket.receive_data()  # Server receive data first
             x = pickle.loads(self.server_data)
             x = x.to(self.device)
-
-            self.forward_results.append(x.clone())
+            self.forward_results.append(x)
 
             # # Save the input tensor to a local file # FIXME never used, may need to be removed
             # torch.save(x, f'../tmp/client/{type(self).__name__}/layer_{layer_index}_input.pt')
 
             # Compute the forward result of the tensor data
             x = self.layers[layer_index](x)
-
-            self.forward_results.append(x.clone())
+            self.forward_results.append(x)
 
             # pickle the tensor data
             serialized_data = pickle.dumps(x)
@@ -65,18 +63,25 @@ class SplitServerModel(AbstractModel):
         # iterate all layers in reverse order
         layer_index = len(self.layers) - 1
 
+        forward_result = self.forward_results.pop()
         while layer_index >= 0:
+            last_forward_result = forward_result
+
             print("Waiting intermediate grads from the client")
             serialized_data = self.socket.receive_data()
-            grads = pickle.loads(serialized_data)
+            last_forward_result.grad = pickle.loads(serialized_data)
 
-            # grads = model.grads.clone().detach()
-            self.forward_results.pop().backward(grads, retain_graph=True)
-            self.optimizers[layer_index].step()
-            self.optimizers[layer_index].zero_grad()
+            forward_result = self.forward_results.pop()
+            forward_result.grad = torch.autograd.grad(outputs=last_forward_result,
+                                                      inputs=forward_result,
+                                                      grad_outputs=torch.ones_like(last_forward_result),
+                                                      allow_unused=True)[0]
+            # TODO do not training on server side.
+            # self.optimizers[layer_index].step()
+            # self.optimizers[layer_index].zero_grad()
 
             # Send the result back to the client
-            serialized_data = pickle.dumps(self.forward_results.pop().grad)
+            serialized_data = pickle.dumps(forward_result.grad)
             print("Sending intermediate grads to the client")
             self.socket.send_data(serialized_data)
 
@@ -107,7 +112,7 @@ class SplitServerModel(AbstractModel):
         while True:
             optimizer.zero_grad()
             self.forward()
-            # self.backward() # TODO backward is wired
+            self.backward()
 
     def model_test(self, dataloader: DataLoader, device: torch.device = None) -> Tuple[float, float]:
         """
