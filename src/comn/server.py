@@ -5,7 +5,6 @@ class ServerSocket:
     def __init__(self, host: str, port: int):
         # Create a TCP/IP socket
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
         server_address = (host, port)
         print(f"Starting server on {host}:{port}")
         try:
@@ -18,6 +17,10 @@ class ServerSocket:
         except Exception as e:
             print(f"Could not start server: {e}")
 
+        print('recv: waiting for a connection')
+        self.client_socket, client_address = self.server_socket.accept()
+        print('client connected:', client_address)
+        
     def send_data(self, data: bytes):
         """Sends raw data through the socket."""
         try:
@@ -26,6 +29,7 @@ class ServerSocket:
             print(f"Error sending data: {e}")
 
     def receive_data(self) -> bytes:
+        
         """Receives raw data from the socket."""
         data = []
         try:

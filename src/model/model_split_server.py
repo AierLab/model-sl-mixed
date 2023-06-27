@@ -25,6 +25,8 @@ class SplitServerModel(AbstractModel):
         self.server_data = None
         self.socket = socket
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.forward_results = []
+        self.optimizers = [Adam(layer.parameters(), lr=0.001,) for layer in self.layers]
 
     def forward(self, x: torch.Tensor = None) -> torch.Tensor:
         """Compute forward result of all model layers."""
@@ -32,10 +34,12 @@ class SplitServerModel(AbstractModel):
         layer_index = 0
         while layer_index < len(self.layers):
             # receive the result from the server
-            print("Waiting intermediate result from the client")
+            print("Waiting forward intermediate result from the client")
             self.server_data = self.socket.receive_data()  # Server receive data first
             x = pickle.loads(self.server_data)
             x = x.to(self.device)
+
+            self.forward_results.append(x.clone())
 
             # # Save the input tensor to a local file # FIXME never used, may need to be removed
             # torch.save(x, f'../tmp/client/{type(self).__name__}/layer_{layer_index}_input.pt')
@@ -43,13 +47,15 @@ class SplitServerModel(AbstractModel):
             # Compute the forward result of the tensor data
             x = self.layers[layer_index](x)
 
+            self.forward_results.append(x.clone())
+
             # pickle the tensor data
             serialized_data = pickle.dumps(x)
             # # Save the tensor data to a local file # FIXME never used, may need to be removed
             # torch.save(serialized_data, f'../tmp/client/{type(self).__name__}/layer_{layer_index}_output.pt')
 
             # Send the result to the server
-            print("Sending intermediate result to the client")
+            print("Sending forward intermediate result to the client")
             self.socket.send_data(serialized_data)
             layer_index += 1
         return x
@@ -64,11 +70,14 @@ class SplitServerModel(AbstractModel):
             serialized_data = self.socket.receive_data()
             grads = pickle.loads(serialized_data)
 
-            grads = self.layers[layer_index].backward(grads)
+            # grads = model.grads.clone().detach()
+            self.forward_results.pop().backward(grads, retain_graph=True)
+            self.optimizers[layer_index].step()
+            self.optimizers[layer_index].zero_grad()
 
             # Send the result back to the client
-            serialized_data = pickle.dumps(grads)
-            print("Sending intermediate result to the client")
+            serialized_data = pickle.dumps(self.forward_results.pop().grad)
+            print("Sending intermediate grads to the client")
             self.socket.send_data(serialized_data)
 
             layer_index -= 1

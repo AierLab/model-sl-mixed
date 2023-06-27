@@ -22,9 +22,11 @@ class SplitClientModel(AbstractModel):
         self.socket = None
         # get all model layers
         self.layers = nn.ModuleList(list(model_layers.children()))
-        self.server_data = None
+        self.loss = None
+        self.optimizers = [Adam(layer.parameters(), lr=0.001,) for layer in self.layers]
         self.socket = socket
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.forward_results = []
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Compute forward result of all model layers."""
@@ -41,7 +43,9 @@ class SplitClientModel(AbstractModel):
 
             # Compute the forward result of the tensor data
             x = self.layers[layer_index](x)
-
+            
+            # TODO this implementation need double check
+            self.forward_results.append(x.clone())
             layer_index += 1
 
             # Not communicate with server in the end of inference.
@@ -63,27 +67,35 @@ class SplitClientModel(AbstractModel):
 
     def backward(self):
         """Compute backward result of all model layers."""
+
+        print("Start backward computation")
         # iterate all layers in reverse order
         layer_index = len(self.layers) - 1
+        self.forward_results.pop()
+        self.loss.backward()
+        self.optimizers[layer_index].step()
+        self.optimizers[layer_index].zero_grad()
 
-        grads = self.layers[layer_index].backward()
+        grads = self.forward_results.pop().grad
 
         # Send the result back to the client
         serialized_data = pickle.dumps(grads)
 
-        print("Sending grads result to the server")
+        print("Sending first grads result to the server")
         self.socket.send_data(serialized_data)
 
+        layer_index -= 1
+
         while layer_index >= 0:
-            print("Waiting intermediate result from the server")
+            print("Waiting intermediate grads result from the server")
             serialized_data = self.socket.receive_data()
             grads = pickle.loads(serialized_data)
 
-            grads = self.layers[layer_index].backward(grads)
+            self.forward_results.pop().backward(grads)
 
             # Send the result back to the client
             serialized_data = pickle.dumps(grads)
-            print("Sending grads result to the server")
+            print("Sending intermediate grads result to the server")
             self.socket.send_data(serialized_data)
 
             layer_index -= 1
@@ -116,8 +128,8 @@ class SplitClientModel(AbstractModel):
                 inputs, labels = inputs.to(device), labels.to(device)
                 optimizer.zero_grad()
                 outputs = self.forward(inputs)
-                loss = criterion(outputs, labels)
-                loss.backward()
+                self.loss = criterion(outputs, labels)
+                self.backward()
                 optimizer.step()
                 print(f"Epoch: {epoch}, Batch: {i}, Loss: {loss.item()}")
             self.save_local(epoch, loss, optimizer.state_dict())

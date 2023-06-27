@@ -4,6 +4,9 @@ import socket
 class ClientSocket:
     def __init__(self, host: str, port: int):
         # Create a TCP/IP socket
+
+        self.host = host
+        self.port = port
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         try:
@@ -14,6 +17,13 @@ class ClientSocket:
 
     def send_data(self, data: bytes):
         """Sends raw data through the socket."""
+
+        # try:
+        #     self.client_socket.connect((self.host, self.port))
+        # except Exception as e:
+        #     print(f"Could not connect to server: {e}")
+        #     return
+        
         try:
             self.client_socket.sendall(data + b"EOF")
         except Exception as e:
@@ -21,6 +31,13 @@ class ClientSocket:
 
     def receive_data(self) -> bytes:
         """Receives raw data from the socket."""
+
+        # try:
+        #     self.client_socket.connect((self.host, self.port))
+        # except Exception as e:
+        #     print(f"Could not connect to server: {e}")
+        #     return
+        
         data = []
         try:
             while True:
