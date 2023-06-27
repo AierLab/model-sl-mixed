@@ -28,7 +28,7 @@ class ClientSocket:
                 if b"EOF" in chunk:
                     data.append(chunk[:-3])
                     break  # no more data
-                print(repr(chunk))
+                # print(repr(chunk))
                 data.append(chunk)
             data = b"".join(data)
             # print(repr(data))
