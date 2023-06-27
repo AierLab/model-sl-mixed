@@ -26,6 +26,7 @@ class ClientSocket:
         
         try:
             self.client_socket.sendall(data + b"EOF")
+            print(str(len(data)/4096))
         except Exception as e:
             print(f"Error sending data: {e}")
 
@@ -47,6 +48,7 @@ class ClientSocket:
                     break  # no more data
                 # print(repr(chunk))
                 data.append(chunk)
+            print("recvd data :" + str(len(data)))
             data = b"".join(data)
             # print(repr(data))
             return data

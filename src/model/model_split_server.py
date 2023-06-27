@@ -35,6 +35,7 @@ class SplitServerModel(AbstractModel):
             print("Waiting forward intermediate result from the client")
             server_data = self.socket.receive_data()  # Server receive data first
             x = pickle.loads(server_data)
+            #print("data recvd : " + repr(x))
             x = x.to(self.device)
 
             # # Save the input tensor to a local file # FIXME never used, may need to be removed
@@ -110,6 +111,7 @@ class SplitServerModel(AbstractModel):
         while True:
             self.forward()
             self.backward()
+            print("________________________________________________")
 
     def model_test(self, dataloader: DataLoader, device: torch.device = None) -> Tuple[float, float]:
         """

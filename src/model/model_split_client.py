@@ -58,6 +58,7 @@ class SplitClientModel(AbstractModel):
             # Send the result to the server
             print("Sending intermediate result to the server")
             self.socket.send_data(serialized_data)
+            #print(repr(serialized_data))
 
             # receive the result from the server
             print("Waiting intermediate result from the server")
@@ -108,10 +109,11 @@ class SplitClientModel(AbstractModel):
             self.optimizers[layer_index].step()
             self.optimizers[layer_index].zero_grad()
 
-            # Send the result back to the client
-            serialized_data = pickle.dumps(forward_result.grad)
-            print("Sending intermediate grads result to the server")
-            self.socket.send_data(serialized_data)
+            if layer_index != 0:  # not the first layer, don't need to send it for the first layer
+                # Send the result back to the client
+                serialized_data = pickle.dumps(forward_result.grad)
+                print("Sending intermediate grads result to the server")
+                self.socket.send_data(serialized_data)
 
             layer_index -= 1
 
@@ -147,6 +149,7 @@ class SplitClientModel(AbstractModel):
                 loss = criterion(outputs, labels)
                 self.backward(loss)
                 print(f"Epoch: {epoch}, Batch: {i}, Loss: {loss.item()}")
+                print("________________________________________________")
             self.save_local(epoch, loss, optimizer.state_dict())
 
     def model_test(self, dataloader: DataLoader, device: torch.device = None) -> Tuple[float, float]:
