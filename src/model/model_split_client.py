@@ -19,7 +19,6 @@ from torch.nn import CrossEntropyLoss
 class SplitClientModel(AbstractModel):
     def __init__(self, model_layers, socket: ClientSocket, model_dir: str):
         super().__init__(model_dir)
-        self.socket = None
         # get all model layers
         self.layers = nn.ModuleList(list(model_layers.children()))
         self.optimizers = [Adam(layer.parameters(), lr=0.001, ) for layer in self.layers]
@@ -45,23 +44,24 @@ class SplitClientModel(AbstractModel):
             x = self.layers[layer_index](x)
             self.forward_results.append(x)
 
-
             layer_index += 1
 
             # Not communicate with server in the end of inference.
-            if layer_index < len(self.layers):
-                # pickle the tensor data
-                serialized_data = pickle.dumps(x)
-                # # Save the tensor data to a local file # FIXME never used, may need to be removed
-                # torch.save(serialized_data, f'../tmp/client/{type(self).__name__}/layer_{layer_index}_output.pt')
+            if layer_index >= len(self.layers):
+                break
 
-                # Send the result to the server
-                print("Sending intermediate result to the server")
-                self.socket.send_data(serialized_data)
+            # pickle the tensor data
+            serialized_data = pickle.dumps(x)
+            # # Save the tensor data to a local file # FIXME never used, may need to be removed
+            # torch.save(serialized_data, f'../tmp/client/{type(self).__name__}/layer_{layer_index}_output.pt')
 
-                # receive the result from the server
-                print("Waiting intermediate result from the server")
-                server_data = self.socket.receive_data()
+            # Send the result to the server
+            print("Sending intermediate result to the server")
+            self.socket.send_data(serialized_data)
+
+            # receive the result from the server
+            print("Waiting intermediate result from the server")
+            server_data = self.socket.receive_data()
         return x
 
     def backward(self, loss: torch.Tensor):
@@ -73,7 +73,8 @@ class SplitClientModel(AbstractModel):
 
         # last forward result
         last_forward_result = self.forward_results.pop()
-        last_forward_result.grad = torch.autograd.grad(outputs=loss, inputs=last_forward_result)[0] # first output is the result
+        last_forward_result.grad = torch.autograd.grad(outputs=loss, inputs=last_forward_result)[
+            0]  # first output is the result
         self.optimizers[layer_index].step()
         self.optimizers[layer_index].zero_grad()
 
@@ -91,7 +92,7 @@ class SplitClientModel(AbstractModel):
 
         layer_index -= 1
 
-        while layer_index >= 0: # except the first one
+        while layer_index >= 0:  # except the first one
             last_forward_result = self.forward_results.pop()
 
             print("Waiting intermediate grads result from the server")
@@ -99,7 +100,7 @@ class SplitClientModel(AbstractModel):
             last_forward_result.grad = pickle.loads(serialized_data)
 
             forward_result = self.forward_results.pop()
-            if layer_index != 0: # not the first layer, don't need to calculate it for the first layer
+            if layer_index != 0:  # not the first layer, don't need to calculate it for the first layer
                 forward_result.grad = torch.autograd.grad(outputs=last_forward_result,
                                                           inputs=forward_result,
                                                           grad_outputs=torch.ones_like(last_forward_result),

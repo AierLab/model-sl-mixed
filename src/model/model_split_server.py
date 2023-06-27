@@ -6,7 +6,7 @@ from torch.nn import CrossEntropyLoss
 from comn import ServerSocket
 import pickle
 from abc import abstractmethod, ABC
-from typing import Tuple
+from typing import Tuple, List
 
 import torch.nn as nn
 import torch
@@ -19,13 +19,12 @@ from model import AbstractModel
 class SplitServerModel(AbstractModel):
     def __init__(self, model_layers, socket: ServerSocket, model_dir: str):
         super().__init__(model_dir)
-        self.socket = None
         # get all model layers
         self.layers = nn.ModuleList(list(model_layers.children()))
         self.socket = socket
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        self.forward_results = []
-        self.optimizers = [Adam(layer.parameters(), lr=0.001,) for layer in self.layers]
+        self.forward_results: List[torch.Tensor] = []
+        self.optimizers = [Adam(layer.parameters(), lr=0.001, ) for layer in self.layers]
 
     def forward(self, x: torch.Tensor = None) -> torch.Tensor:
         """Compute forward result of all model layers."""
@@ -109,7 +108,6 @@ class SplitServerModel(AbstractModel):
             # base_loss = model_dict['loss'] # TODO not used
 
         while True:
-            optimizer.zero_grad()
             self.forward()
             self.backward()
 
