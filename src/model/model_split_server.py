@@ -13,6 +13,7 @@ import torch
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 
+from helper import NoneException
 from model import AbstractModel
 
 
@@ -30,6 +31,7 @@ class SplitServerModel(AbstractModel):
         """Compute forward result of all model layers."""
         # iterate all layers
         layer_index = 0
+        self.forward_results = []
         while layer_index < len(self.layers):
             # receive the result from the server
             print("Waiting forward intermediate result from the client")
@@ -89,7 +91,6 @@ class SplitServerModel(AbstractModel):
             # torch.save(tensor_data, f'../tmp/client/layer_{layer_index}_grads_input.pt')
             # print("Sending intermediate result back to the client")
             # Compute the backward result of the tensor data
-        self.forward_results = []
 
     def model_train(self, device: torch.device, dataloader: DataLoader = None, epochs: int = None):
         """
@@ -109,9 +110,17 @@ class SplitServerModel(AbstractModel):
             # base_loss = model_dict['loss'] # TODO not used
 
         while True:
-            self.forward()
-            self.backward()
-            print("________________________________________________")
+            try:
+                self.forward()
+                self.backward()
+                # print("________________________________________________")
+            except NoneException as e:
+                print(e)
+                print("Passive repeat")
+            except Exception as e:
+                print(e)
+                self.socket.send_data(b"")
+                print("Active repeat")
 
     def model_test(self, dataloader: DataLoader, device: torch.device = None) -> Tuple[float, float]:
         """

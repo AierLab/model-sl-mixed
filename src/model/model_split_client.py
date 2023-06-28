@@ -12,6 +12,7 @@ import torch
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 
+from helper import NoneException
 from model import AbstractModel
 from torch.nn import CrossEntropyLoss
 
@@ -31,6 +32,7 @@ class SplitClientModel(AbstractModel):
         # iterate all layers
         layer_index = 0
         server_data = None
+        self.forward_results = []
         while layer_index < len(self.layers):
             # If not the first layer, the input is the result from the server
             if server_data is not None:
@@ -90,10 +92,10 @@ class SplitClientModel(AbstractModel):
         serialized_data = pickle.dumps(forward_result.grad)
         print("Sending first grads result to the server")
         self.socket.send_data(serialized_data)
-
         layer_index -= 1
 
-        while layer_index >= 0:  # except the first one
+        while layer_index >= 0:  # not the first layer, don't need to calculate it for the first layer
+            # Next layer
             last_forward_result = self.forward_results.pop()
 
             print("Waiting intermediate grads result from the server")
@@ -101,15 +103,15 @@ class SplitClientModel(AbstractModel):
             last_forward_result.grad = pickle.loads(serialized_data)
 
             forward_result = self.forward_results.pop()
+
+            self.optimizers[layer_index].step()
+            self.optimizers[layer_index].zero_grad()
+
             if layer_index != 0:  # not the first layer, don't need to calculate it for the first layer
                 forward_result.grad = torch.autograd.grad(outputs=last_forward_result,
                                                           inputs=forward_result,
                                                           grad_outputs=torch.ones_like(last_forward_result),
                                                           allow_unused=True)[0]
-            self.optimizers[layer_index].step()
-            self.optimizers[layer_index].zero_grad()
-
-            if layer_index != 0:  # not the first layer, don't need to send it for the first layer
                 # Send the result back to the client
                 serialized_data = pickle.dumps(forward_result.grad)
                 print("Sending intermediate grads result to the server")
@@ -141,15 +143,27 @@ class SplitClientModel(AbstractModel):
             # base_loss = model_dict['loss'] # TODO not used
 
         for epoch in range(base_epoch, base_epoch + epochs):
-            loss: torch.Tensor
+            loss = None
             for i, (inputs, labels) in enumerate(dataloader, 0):
                 inputs, labels = inputs.to(device), labels.to(device)
-                optimizer.zero_grad()
-                outputs = self.forward(inputs)
-                loss = criterion(outputs, labels)
-                self.backward(loss)
-                print(f"Epoch: {epoch}, Batch: {i}, Loss: {loss.item()}")
-                print("________________________________________________")
+                while True:
+                    try:
+                        optimizer.zero_grad()
+                        outputs = self.forward(inputs)
+                        loss = criterion(outputs, labels)
+                        self.backward(loss)
+                        print(f"Epoch: {epoch}, Batch: {i}, Loss: {loss.item()}")
+                        print("________________________________________________")
+                        break
+                    except NoneException as e:
+                        print(e)
+                        print("Passive repeat")
+                    except Exception as e:
+                        print(e)
+                        self.socket.send_data(b"")
+                        print("Active repeat")
+
+            print(f"Epoch: {epoch}, Loss: {loss.item()}")
             self.save_local(epoch, loss, optimizer.state_dict())
 
     def model_test(self, dataloader: DataLoader, device: torch.device = None) -> Tuple[float, float]:
