@@ -1,5 +1,7 @@
 import socket
 
+from helper import NoneException
+
 
 class ClientSocket:
     def __init__(self, host: str, port: int):
@@ -26,7 +28,7 @@ class ClientSocket:
         
         try:
             self.client_socket.sendall(data + b"EOF")
-            print(str(len(data)/4096))
+            # print(str(len(data)/4096))
         except Exception as e:
             print(f"Error sending data: {e}")
 
@@ -40,20 +42,22 @@ class ClientSocket:
         #     return
         
         data = []
-        try:
-            while True:
-                chunk = self.client_socket.recv(4096)
-                if b"EOF" in chunk:
-                    data.append(chunk[:-3])
-                    break  # no more data
-                # print(repr(chunk))
-                data.append(chunk)
-            print("recvd data :" + str(len(data)))
-            data = b"".join(data)
-            # print(repr(data))
-            return data
-        except Exception as e:
-            print(f"Error receiving data: {e}")
+        # try:
+        while True:
+            chunk = self.client_socket.recv(4096)
+            if b"EOF" in chunk:
+                data.append(chunk[:-3])
+                break  # no more data
+            # print(repr(chunk))
+            data.append(chunk)
+        # print("recvd data :" + str(len(data)))
+        data = b"".join(data)
+        # print(repr(data))
+        if data == b"":
+            raise NoneException("None received")
+        return data
+        # except Exception as e:
+        #     print(f"Error receiving data: {e}")
 
     # def send_file(self, file_path):
     #     if not os.path.exists(file_path):
