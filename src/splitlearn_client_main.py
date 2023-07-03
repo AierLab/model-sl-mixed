@@ -1,9 +1,8 @@
 from data import CifarData
-from comn import ClientSocket
+from splitlearn import SplitClient
 import torch.nn as nn
 
 from model.model_split_client import SplitClientModel
-from splitlearn import SplitClient
 
 if __name__ == '__main__':
     # run in separate terminal
@@ -27,8 +26,7 @@ if __name__ == '__main__':
 
     # Init data, socket and model.
     data = CifarData(data_dir=CLIENT_DIR)
-    socket = ClientSocket(host="localhost", port=10086)
-    model = SplitClientModel(model_layers, socket, CLIENT_DIR)
+    client = SplitClient('http://localhost:10086', 'secret_api_key')
 
-    client = SplitClient(data, model)
-    client.run()
+    model = SplitClientModel(model_layers, client, CLIENT_DIR)
+    model.model_train(data.trainloader, epochs=1)

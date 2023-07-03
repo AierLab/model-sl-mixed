@@ -1,9 +1,7 @@
 import torch.nn as nn
 
-from data import CifarData
-from comn import ServerSocket
+from splitlearn import SplitServer
 from model.model_split_server import SplitServerModel
-from splitlearn import SplitClient, SplitServer
 
 if __name__ == "__main__":
     m2 = nn.Sequential(
@@ -17,8 +15,7 @@ if __name__ == "__main__":
     SERVER_DIR = "../tmp/server"
 
     # Init data and model.
-    socket = ServerSocket(host="localhost", port=10086)
-    model = SplitServerModel(model_layers, socket, SERVER_DIR)
+    model = SplitServerModel(model_layers, SERVER_DIR)
 
-    server = SplitServer(model)
-    server.run()
+    server = SplitServer(model.data_process)
+    server.run("localhost", 10086)
