@@ -1,9 +1,11 @@
-# AI-ETF-FL-EC
-Artificial Intelligence Encryption and Training Framework based on Federated Learning and Edge Computing
+# AI-ETF-FL-SL
+Artificial Intelligence Data Encryption and Model Personalisation Framework based on Federated Learning and Split Learning.
 
 ## Introduction
 
-TODO pending for update
+A project that can encrypt cloud model user input with trained local model layers. The architecture we choose is Micro-service.
+
+TODO more details
 
 ## Project Index
 
@@ -11,23 +13,21 @@ TODO pending for update
 2. Federated Learning: [src/fedlearn/README.md](src/fedlearn/README.md)
 3. Split Learning: [src/splitlearn/README.md](src/splitlearn/README.md)
 
-## Architecture
-
-Micro-service.
-
-TODO pending for update
-
 ## Contribution
 
 TODO pending for update
 
-## Reference
+## Citation Info
 
 TODO pending for update
 
-## Group contact
+## Group Contact
 
-TODO pending for update
+_Maintained by AierLab, an open-source group._
+
+🤖GitHub discussions: [Disscussions](https://github.com/orgs/AierLab/discussions)
+🌸QQ chat group：[兔叽の魔术工房](https://jq.qq.com/?_wv=1027&k=EaGddTQg) (942848525)
+⭐Bilibili：[白拾Official](https://space.bilibili.com/98639326)
 
 
 
