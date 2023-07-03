@@ -1,5 +1,7 @@
 # Federated Learning
 
+Federated learning with model weights aggregation, with updated aggregation, functions able to collaborate with split learning service.
+
 ## Environment Setup
 1.Install [flower](https://flower.dev/docs/install-flower.html#install-stable-release)
   ```
@@ -25,7 +27,7 @@
   Repeat the previous step in the third terminal to start the second client. Normal simulation requires at least two clients, you can add as many clients as you want.
   
   
-### You can configure the server using following command line arguments：
+## You can configure the server using following command line arguments：
 
 | argument | description |
 | --------------- | --------------- |
@@ -41,7 +43,5 @@
 - [x] Load checkpoint on server side.
 - [x] Save checkpoint on client side.
 - [x] Save checkpoint on server side.
-
-## TODOs
-
+- [x] Load checkpoint on client side.
 - [ ] Rewrite Aggregation func for split learning.
