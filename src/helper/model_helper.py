@@ -6,6 +6,7 @@ import torch
 def get_weights(model):
     return [val.cpu().numpy() for _, val in model.state_dict().items()]
 
+
 # Function to set the weights of a model
 def set_weights(model, weights) -> None:
     params_dict = zip(model.state_dict().keys(), weights)

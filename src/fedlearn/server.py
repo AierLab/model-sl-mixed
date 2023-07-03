@@ -6,7 +6,6 @@ import numpy as np
 from flwr.common import FitRes, Scalar, Parameters, parameters_to_ndarrays
 from flwr.server.client_proxy import ClientProxy
 
-from comn import AbstractServer
 from model import AbstractModel, DemoModel
 from helper import get_weights, set_weights
 
@@ -32,7 +31,7 @@ class FedAvgSaveModel(fl.server.strategy.FedAvg):
         return weights
 
 
-class Server(AbstractServer):
+class FedServer:
     def __init__(self, model: AbstractModel, base_epoch: int, fc, ac):
         # get weights of model
         init_weights = get_weights(model)

@@ -6,13 +6,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from comn import AbstractClient
 from .model_abstract import AbstractModel
+
 
 class DemoModel(AbstractModel):
 
-    def __init__(self, client: AbstractClient, model_dir: str) -> None:
-        super(DemoModel, self).__init__(client, model_dir)
+    def __init__(self, model_dir: str) -> None:
+        super(DemoModel, self).__init__(model_dir)
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5)
@@ -44,18 +44,16 @@ class DemoModel(AbstractModel):
             base_epoch = model_dict["epoch"]
             # base_loss = model_dict['loss'] # TODO not used
 
-        for epoch in range(1, epochs+1):
-            epoch += base_epoch
-            print(f"Log: start Epoch{epoch}")
-
+        for epoch in range(base_epoch, epochs):
             loss = None
-            for images, labels in dataloader:
-                images, labels = images.to(device), labels.to(device)
+            for i, (inputs, labels) in enumerate(dataloader, 0):
+                inputs, labels = inputs.to(device), labels.to(device)
                 optimizer.zero_grad()
-                loss = criterion(self.forward(images), labels) # TODO double check
+                outputs = self.forward(inputs)
+                loss = criterion(outputs, labels)
                 loss.backward()
                 optimizer.step()
-
+                print(f"Epoch: {epoch}, Batch: {i}, Loss: {loss.item()}")
             self.save_local(epoch, loss, optimizer.state_dict())
 
     def model_test(self, dataloader: DataLoader, device: torch.device = None) -> Tuple[float, float]:
@@ -75,7 +73,7 @@ class DemoModel(AbstractModel):
         with torch.no_grad():
             for data in dataloader:
                 images, labels = data[0].to(device), data[1].to(device)
-                outputs = self.forward(images) # TODO double check
+                outputs = self.forward(images)  # TODO double check
                 loss += criterion(outputs, labels).item()
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)

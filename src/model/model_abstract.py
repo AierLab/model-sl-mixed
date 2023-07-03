@@ -6,25 +6,23 @@ import torch.nn as nn
 from abc import ABC, abstractmethod
 from torch.utils.data import DataLoader
 
-from comn import AbstractClient
 
 class AbstractModel(nn.Module, ABC):
 
-    def __init__(self, client: AbstractClient, model_dir: str) -> None:
+    def __init__(self, model_dir: str) -> None:
         """
         client: client instance
         model_dir: the folder for model state dict, pt file
         """
         super(AbstractModel, self).__init__()
-        self.client = client
         self.model_dir = model_dir
 
     @abstractmethod
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         pass
 
-    @abstractmethod
-    def model_train(self, dataloader: DataLoader, epochs: int, device: torch.device = None):
+    def model_train(self, dataloader: DataLoader, epochs: int, device: torch.device):
+        # TODO better to have loss and optimizer defied outside, and pass as parameters.
         pass
 
     @abstractmethod
