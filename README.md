@@ -13,15 +13,21 @@ TODO more details
 2. Federated Learning: [src/fedlearn/README.md](src/fedlearn/README.md)
 3. Split Learning: [src/splitlearn/README.md](src/splitlearn/README.md)
 
-## Contribution
+## Licensing & Contribution
 
-TODO pending for update
+This project is licensed under the [Apache-2.0](LICENSE) license. We welcome contributions and improvements to the project. 
+
+Please look at the [CONTRIBUTING.md](CONTRIBUTING.md) file for more details.
 
 ## Citation Info
 
 TODO pending for update
 
 ## Group Contact
+
+For any questions or issues, please open a GitHub issue. We'll respond as soon as possible.
+
+---
 
 _Maintained by AierLab, an open-source group._
 
