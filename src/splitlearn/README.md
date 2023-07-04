@@ -5,7 +5,7 @@ Separate a single model into several parts, deploy on different devices but infe
 # Key design
 
 - use `flask` server as the server.
-- use `http/https` as protocoll.
+- use `http/https` as protocol.
 - serialise or deserialise with `pickle` package.
 - encoded byte information in `json` communication.
 
