@@ -62,11 +62,11 @@ class Server:
         else:
             return jsonify({"error": "Invalid request parameter"}), 400
 
-    def run(self):
+    def run(self, host: str, port: int) -> None:
         """
-        Run the Flask app.
+        Runs the Flask server.
         """
-        self.app.run(debug=True)
+        self.app.run(host=host, port=port)
 
 
 if __name__ == '__main__':
@@ -81,4 +81,4 @@ if __name__ == '__main__':
 
 
     server = Server(process_func)
-    server.run()
+    server.run("localhost", 10086)
