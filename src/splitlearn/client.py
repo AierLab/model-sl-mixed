@@ -4,7 +4,6 @@ This script is used to define a Client class that communicates with a server.
 import base64
 
 import requests
-import time
 from typing import Any, Dict
 
 
@@ -42,6 +41,7 @@ class SplitClient:
                 data[key] = base64.b64decode(data[key].encode('utf-8'))
         print(f"Received processed data.")
         return data
+
 
 if __name__ == '__main__':
     client = SplitClient('http://localhost:10086', 'secret_api_key')
