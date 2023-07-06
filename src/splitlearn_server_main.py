@@ -10,7 +10,7 @@ if __name__ == "__main__":
         nn.MaxPool2d(kernel_size=2, stride=2)
     )
 
-    model_layers = nn.Sequential(m2)
+    model_layers = nn.ModuleList([m2])
 
     SERVER_DIR = "../tmp/server"
 

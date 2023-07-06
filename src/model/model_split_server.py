@@ -20,7 +20,7 @@ class SplitServerModel(AbstractModel):
     def __init__(self, model_layers, model_dir: str, device=None):
         super().__init__(model_dir)
         # get all model layers
-        self.layers = nn.ModuleList(list(model_layers.children()))
+        self.layers = model_layers
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") if device is None else device
         self.forward_results: List[torch.Tensor] = []
         self.layer_index = 0

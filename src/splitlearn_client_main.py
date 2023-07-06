@@ -22,7 +22,7 @@ if __name__ == '__main__':
         nn.Linear(32, 10)
     )
 
-    model_layers = nn.Sequential(m1, m3)
+    model_layers = nn.ModuleList([m1, m3])
 
     # Init data, socket and model.
     data = CifarData(data_dir=CLIENT_DIR)

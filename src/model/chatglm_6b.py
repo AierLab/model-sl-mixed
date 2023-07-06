@@ -6,8 +6,10 @@ class ChatModel:
     def __init__(self):
         self.tokenizer = AutoTokenizer.from_pretrained("THUDM/chatglm-6b", trust_remote_code=True)
         self.model = AutoModel.from_pretrained("THUDM/chatglm-6b", trust_remote_code=True).half().cuda()
+        print(self.model)
         self.model = self.model.eval()
         self.history = []
+        self.count = 0
 
     def build_prompt(self) -> str:
         # prompt = "Welcome to the ChatGLM-6B model. Type your message."
@@ -17,9 +19,11 @@ class ChatModel:
         return prompt
 
     def process(self, query: str) -> str:
-        count = 0
+        if self.count == 1000: # TODO hard coded
+            self.count = 0
+            self.history = []
         for response, self.history in self.model.stream_chat(self.tokenizer, query, history=self.history):
-            count += 1
+            self.count += 1
             # if count % 8 == 0:
             #     yield self.build_prompt()
         return self.build_prompt()

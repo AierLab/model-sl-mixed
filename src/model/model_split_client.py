@@ -21,7 +21,7 @@ class SplitClientModel(AbstractModel):
     def __init__(self, model_layers, client: SplitClient, model_dir: str, device=None):
         super().__init__(model_dir)
         # get all model layers
-        self.layers = nn.ModuleList(list(model_layers.children()))
+        self.layers = model_layers
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") if device is None else device
         self.optimizers = [Adam(layer.parameters(), lr=0.001, ) for layer in self.layers]
         self.client = client
