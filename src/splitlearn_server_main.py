@@ -1,3 +1,6 @@
+from queue import Queue
+from threading import Thread
+
 import torch.nn as nn
 
 from splitlearn import SplitServer
@@ -14,8 +17,15 @@ if __name__ == "__main__":
 
     SERVER_DIR = "../tmp/server"
 
-    # Init data and model.
-    model = SplitServerModel(model_layers, SERVER_DIR)
+    in_queue = Queue()
+    out_queue = Queue()
 
-    server = SplitServer(model.data_process)
-    server.run("localhost", 10086)
+    # Init data and model.
+    model = SplitServerModel(model_layers, SERVER_DIR, in_queue, out_queue)
+    server = SplitServer(in_queue, out_queue)
+
+    t1 = Thread(target=model.run)
+    t2 = Thread(target=server.run, args=("localhost", 8888))
+
+    t1.start()
+    t2.start()
