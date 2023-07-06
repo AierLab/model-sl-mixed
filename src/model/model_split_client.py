@@ -21,7 +21,7 @@ class SplitClientModel(AbstractModel):
     def __init__(self, model_layers, client: SplitClient, model_dir: str, device=None):
         super().__init__(model_dir)
         # get all model layers
-        self.layers = nn.ModuleList(list(model_layers.children()))
+        self.layers = model_layers
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") if device is None else device
         self.optimizers = [Adam(layer.parameters(), lr=0.001, ) for layer in self.layers]
         self.client = client
@@ -47,7 +47,7 @@ class SplitClientModel(AbstractModel):
             serialized_data = pickle.dumps(x)
             # Send the result to the server
             print("Sending intermediate result to the server")
-            server_data = self.client.send_process_and_retrieve({"byte_data": serialized_data, "stage": "forward"})["byte_data"]
+            server_data = self.client.send_data({"byte_data": serialized_data, "stage": "forward"})["byte_data"]
             # print(repr(serialized_data))
             x = pickle.loads(server_data)
             x = x.to(self.device)
@@ -77,7 +77,7 @@ class SplitClientModel(AbstractModel):
         # Send the result back to the server
         serialized_data = pickle.dumps(forward_result.grad)
         print("Sending first grads result to the server")
-        serialized_data = self.client.send_process_and_retrieve({"byte_data": serialized_data, "stage": "backward"})["byte_data"]
+        serialized_data = self.client.send_data({"byte_data": serialized_data, "stage": "backward"})["byte_data"]
         layer_index -= 1
 
         while layer_index >= 0:  # not the first layer, don't need to calculate it for the first layer
@@ -98,7 +98,7 @@ class SplitClientModel(AbstractModel):
                 # Send the result back to the client
                 serialized_data = pickle.dumps(forward_result.grad)
                 print("Sending intermediate grads result to the server")
-                serialized_data = self.client.send_process_and_retrieve({"byte_data": serialized_data})["byte_data"]
+                serialized_data = self.client.send_data({"byte_data": serialized_data})["byte_data"]
 
             layer_index -= 1
 

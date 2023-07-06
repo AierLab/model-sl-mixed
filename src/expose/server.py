@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, abort
+from flask_cors import CORS
 from typing import Callable, Any
 
 
@@ -14,6 +15,8 @@ class Server:
         :param function: The function to be used for processing text.
         """
         self.app = Flask(__name__)
+        CORS(self.app)  # FIXME This is not allowed for local app
+
         self.app.route("/api/text", methods=['POST'])(self.post_text)
         self.app.route("/api/feedback", methods=['POST'])(self.post_feedback)
         self.api_key = "secret_api_key"  # In reality, this should be securely stored
@@ -41,7 +44,10 @@ class Server:
         resource_requirements = data.get('resource_requirements')
 
         if text:
-            result = self.function(text)  # Process the text
+            try:
+                result = self.function(text)  # Process the text
+            except:
+                return jsonify({"error": "Text process error"}), 500
             return jsonify({"result": result}), 200
         else:
             return jsonify({"error": "Invalid request parameter"}), 400
@@ -62,11 +68,11 @@ class Server:
         else:
             return jsonify({"error": "Invalid request parameter"}), 400
 
-    def run(self):
+    def run(self, host: str, port: int) -> None:
         """
-        Run the Flask app.
+        Runs the Flask server.
         """
-        self.app.run(debug=True)
+        self.app.run(host=host, port=port)
 
 
 if __name__ == '__main__':
@@ -81,4 +87,4 @@ if __name__ == '__main__':
 
 
     server = Server(process_func)
-    server.run()
+    server.run("localhost", 10086)

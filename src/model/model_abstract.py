@@ -17,7 +17,6 @@ class AbstractModel(nn.Module, ABC):
         super(AbstractModel, self).__init__()
         self.model_dir = model_dir
 
-    @abstractmethod
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         pass
 
@@ -25,7 +24,6 @@ class AbstractModel(nn.Module, ABC):
         # TODO better to have loss and optimizer defied outside, and pass as parameters.
         pass
 
-    @abstractmethod
     def model_test(self, dataloader: DataLoader, device: torch.device = None) -> Tuple[float, float]:
         pass
 
