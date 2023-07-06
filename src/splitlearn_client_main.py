@@ -22,11 +22,11 @@ if __name__ == '__main__':
         nn.Linear(32, 10)
     )
 
-    model_layers = nn.Sequential(m1, m3)
+    model_layers = nn.ModuleList([m1, m3])
 
     # Init data, socket and model.
     data = CifarData(data_dir=CLIENT_DIR)
-    client = SplitClient('http://localhost:10086', 'secret_api_key')
+    client = SplitClient('http://localhost:8888', 'secret_api_key')
 
     model = SplitClientModel(model_layers, client, CLIENT_DIR)
     model.model_train(data.trainloader, epochs=1)

@@ -1,6 +1,13 @@
 # AI-ETF-FL-SL
 Artificial Intelligence Data Encryption and Model Personalisation Framework based on Federated Learning and Split Learning.
 
+## Start
+
+```bash
+cd src
+python main.py
+```
+
 ## Introduction
 
 A project that can encrypt cloud model user input with trained local model layers. The architecture we choose is Micro-service.
