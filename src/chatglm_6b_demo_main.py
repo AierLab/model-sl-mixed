@@ -3,16 +3,15 @@ import os
 
 import torch
 from tqdm import tqdm
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, AutoModel
 
 from model.chatglm_6b_demo import ChatGLMForConditionalGeneration, ChatGLMTokenizer, ChatGLMConfig
 
 tokenizer_config_path = os.path.join('model', 'chatglm_6b_demo', 'tokenizer_config.json')
 model_config_path = os.path.join('model', 'chatglm_6b_demo', 'config.json')
 model_dir = os.path.join("..", "tmp", "server")
-model_state_dict_file_num = 8
 token_text_path = os.path.join("..", "tmp", "client", "ice_text.model")
-
+model_state_dict_file_num = 8
 
 class ChatModel:
     def __init__(self):
