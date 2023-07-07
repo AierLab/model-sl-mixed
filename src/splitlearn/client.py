@@ -34,6 +34,7 @@ class SplitClient:
         for key in data:
             if "byte" in key:
                 data[key] = base64.b64encode(data[key]).decode('utf-8')
+        print(f"Sending intermediate data.")
         response = requests.post(self.url + "/intermediate", json=data, headers=self.headers)
         data = response.json()
         for key in data:

@@ -41,7 +41,6 @@ class SplitClientLayer(AbstractModel):
         # pickle the tensor data
         serialized_data = pickle.dumps(x)
         # Send the result to the server
-        print("Sending intermediate result to the server")
         server_data = self.client.send_data({"byte_data": serialized_data, "stage": "forward"})["byte_data"]
         # print(repr(serialized_data))
         x = pickle.loads(server_data)
