@@ -1,45 +1,53 @@
-import pickle
 from time import sleep
 
-import numpy as np
-import torch.nn
 from torch import nn
 from transformers import AutoTokenizer, AutoModel
 
 from model import AbstractModel
-from .layer_split_server import SplitServerLayer
-from .layer_split_client import SplitClientLayer
+from model.layer_split_server import SplitServerLayer
+from tmp.redundant.layer_split_client import SplitClientLayer
 
-layer_number = 28
-
-
-class SplitClientChatModel(AbstractModel):
-    def __init__(self, model_dir, client):
+class SplitServerChatModel(AbstractModel):
+    def __init__(self, model_dir, in_queue=None, out_queue=None, client=None):
         super().__init__(model_dir)
-        self.model_dir = model_dir
-        self.client = client
+        layer_number = 28
 
         self.tokenizer = AutoTokenizer.from_pretrained("THUDM/chatglm_6b_demo", trust_remote_code=True)
-        self.model: torch.nn.Module = AutoModel.from_pretrained("THUDM/chatglm_6b_demo", trust_remote_code=True)
 
-        # Replace transformer layers with new layer.
-        for i in range(layer_number - 1, 0, -1):
-            self.model.transformer.layers[i] = SplitClientLayer(client, model_dir)
+        self.client = client
 
-        self.model = self.model.half().cuda()
+        if client is None:
+            self.model = AutoModel.from_pretrained("THUDM/chatglm_6b_demo", trust_remote_code=True).half().cuda()
+            self.model.transformer.word_embeddings = nn.Identity()
+            self.model.transformer.layers[0] = nn.Identity()
+            for i in range(layer_number - 1, 0, -1):
+                self.model.transformer.layers[i].add_module(f"p{i}_layer",
+                                                            SplitServerLayer(model_dir, in_queue, out_queue))
+        else:
+            self.model = AutoModel.from_pretrained("THUDM/chatglm_6b_demo", trust_remote_code=True).half().cuda()
+            for i in range(layer_number - 1, 0, -1):
+                self.model.transformer.layers[i] = SplitClientLayer(client, model_dir)
 
         print(self.model)
-        self.model_eval = self.model.eval()
-
+        self.model = self.model.eval()
         self.history = []
         self.count = 0
 
+        self.in_queue = in_queue
+        self.out_queue = out_queue
+
     def forward(self, x):
-        x = self.tokenizer(x)
-        x = self.model(**x)
+        if self.client is None:
+            x = self.model.generate(x, max_length=512)
+        else:
+            x = self.tokenizer(x) # TODO need update
+            x = self.model(**x)
         return x
 
-    def _build_prompt(self) -> str:
+    def backward(self):
+        pass  # TODO need update
+
+    def build_prompt(self) -> str:
         # prompt = "Welcome to the ChatGLM-6B model. Type your message."
         prompt = ""
         _, response = self.history[-1]
@@ -50,11 +58,11 @@ class SplitClientChatModel(AbstractModel):
         if self.count == 1000:  # TODO hard coded
             self.count = 0
             self.history = []
-        for response, self.history in self.model_eval.stream_chat(self.tokenizer, query, history=self.history):
+        for response, self.history in self.model.stream_chat(self.tokenizer, query, history=self.history):
             self.count += 1
             # if count % 8 == 0:
             #     yield self.build_prompt()
-        return self._build_prompt()
+        return self.build_prompt()
 
     def clear(self) -> None:
         self.history = []
@@ -71,23 +79,31 @@ class SplitClientChatModel(AbstractModel):
         if model_dict:
             self.load_state_dict(model_dict["model_state_dict"])
 
-        print("Welcome to the ChatGLM-6B model. Type your message.")
         while True:
-            query = input("\nUser: ").strip()
-            if query == "stop":
-                self.stop()
-                print("Process exit..")
-                break
-            elif query == "clear":
-                self.clear()
-                print("Chat history cleared.")
-            else:
-                response = self.process(query)
-                print(response)
+            while self.in_queue.empty():
+                sleep(0.1)
+            data = self.in_queue.get()
+
+            if data["stage"] == "forward":
+                serialized_data = data["byte_data"]
+                x = pickle.loads(serialized_data)
+                x = self.forward(x)
+                serialized_data = pickle.dumps(x)
+                data["byte_data"] = serialized_data
+            else:  # stage == "backward"
+                serialized_data = data["byte_data"]
+                grad = pickle.loads(serialized_data)
+                grad = self.backward(grad)
+                serialized_data = pickle.dumps(grad)
+                data["byte_data"] = serialized_data
+
+            while self.out_queue.empty():
+                sleep(0.1)
+            self.out_queue.put(data)
 
 
 def main():
-    chat_model = SplitClientChatModel()
+    chat_model = SplitServerChatModel()
     print("Welcome to the ChatGLM-6B model. Type your message.")
     while True:
         query = input("\nUser: ").strip()
@@ -100,6 +116,10 @@ def main():
         else:
             response = chat_model.process(query)
             print(response)
+
+
+if __name__ == "__main__":
+    # main()
 
     tokenizer = AutoTokenizer.from_pretrained("THUDM/chatglm_6b_demo", trust_remote_code=True)
     model = AutoModel.from_pretrained("THUDM/chatglm_6b_demo", trust_remote_code=True).half().cuda()
@@ -123,7 +143,3 @@ def main():
     outputs = model(**inputs)
     loss = outputs.loss
     logits = outputs.logits
-
-
-if __name__ == "__main__":
-    main()

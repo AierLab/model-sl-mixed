@@ -22,7 +22,6 @@ class SplitServer:
         self.app = Flask(__name__)
         self.app.add_url_rule('/intermediate', 'intermediate', self.receive_data, methods=['POST'])
         self.api_key = "secret_api_key"  # In reality, this should be securely stored and not hard-coded
-        self.data_queue = Queue()
         self.in_queue = in_queue
         self.out_queue = out_queue
 
@@ -42,7 +41,6 @@ class SplitServer:
         for key in data:
             if "byte" in key:
                 data[key] = base64.b64decode(data[key].encode('utf-8'))
-        self.data_queue.put(data)
         print(f"Received data.")
 
         self.in_queue.put(data)
@@ -53,6 +51,8 @@ class SplitServer:
         for key in data:
             if "byte" in key:
                 data[key] = base64.b64encode(data[key]).decode('utf-8')
+
+        print(f"Sending intermediate data back.")
         return jsonify(data)
 
     def run(self, host: str, port: int) -> None:

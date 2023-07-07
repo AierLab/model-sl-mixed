@@ -6,6 +6,7 @@ import os
 import warnings
 import re
 import sys
+from queue import Queue
 
 import torch
 import torch.utils.checkpoint
@@ -31,6 +32,7 @@ from transformers.generation.logits_process import LogitsProcessor
 from transformers.generation.utils import LogitsProcessorList, StoppingCriteriaList, GenerationConfig, ModelOutput
 
 from .configuration_chatglm import ChatGLMConfig
+from .. import SplitServerLayer
 
 # flags required to enable jit fusion kernels
 
@@ -558,6 +560,10 @@ class GLMBlock(torch.nn.Module):
             num_attention_heads,
             layernorm_epsilon,
             layer_id,
+            model_dir: str,
+            in_queue: Queue,
+            out_queue: Queue,
+            skip: bool = True,
             inner_hidden_size=None,
             hidden_size_per_attention_head=None,
             layernorm=LayerNorm,
@@ -604,7 +610,9 @@ class GLMBlock(torch.nn.Module):
             empty_init=empty_init
         )
 
-    def forward(
+        self.split_server_layer = SplitServerLayer(model_dir, in_queue, out_queue, skip)
+
+    def forward_inner(
             self,
             hidden_states: torch.Tensor,
             position_ids,
@@ -618,7 +626,6 @@ class GLMBlock(torch.nn.Module):
         hidden_states: [seq_len, batch, hidden_size]
         attention_mask: [(1, 1), seq_len, seq_len]
         """
-
         # Layer norm at the begining of the transformer layer.
         # [seq_len, batch, hidden_size]
         attention_input = self.input_layernorm(hidden_states)
@@ -656,6 +663,33 @@ class GLMBlock(torch.nn.Module):
             outputs = (output,) + outputs[1:]
 
         return outputs  # hidden_states, present, attentions
+
+    def forward(
+            self,
+            hidden_states: torch.Tensor,
+            position_ids,
+            attention_mask: torch.Tensor,
+            layer_id,
+            layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+            use_cache: bool = False,
+            output_attentions: bool = False,
+    ):
+        """
+        hidden_states: [seq_len, batch, hidden_size]
+        attention_mask: [(1, 1), seq_len, seq_len]
+        """
+
+        hidden_states, kwargs = self.split_server_layer(
+            hidden_states,
+            position_ids=position_ids,
+            attention_mask=attention_mask,
+            layer_id=layer_id,
+            layer_past=layer_past,
+            use_cache=use_cache,
+            output_attentions=output_attentions
+        )
+
+        return self.forward_inner(hidden_states, **kwargs)
 
 
 class ChatGLMPreTrainedModel(PreTrainedModel):
@@ -798,7 +832,7 @@ class ChatGLMModel(ChatGLMPreTrainedModel):
     `encoder_hidden_states` is then expected as an input to the forward pass.
     """
 
-    def __init__(self, config: ChatGLMConfig, empty_init=True):
+    def __init__(self, config: ChatGLMConfig, model_dir: str, in_queue: Queue, out_queue: Queue, empty_init=True):
         super().__init__(config)
         if empty_init:
             init_method = skip_init
@@ -825,12 +859,16 @@ class ChatGLMModel(ChatGLMPreTrainedModel):
         )
         self.gradient_checkpointing = False
 
-        def get_layer(layer_id):
+        def get_layer(layer_id, skip):
             return GLMBlock(
                 self.hidden_size,
                 self.num_attention_heads,
                 self.layernorm_epsilon,
                 layer_id,
+                model_dir,
+                in_queue,
+                out_queue,
+                skip,
                 inner_hidden_size=self.inner_hidden_size,
                 hidden_size_per_attention_head=self.hidden_size_per_attention_head,
                 layernorm=LayerNorm,
@@ -841,7 +879,7 @@ class ChatGLMModel(ChatGLMPreTrainedModel):
             )
 
         self.layers = torch.nn.ModuleList(
-            [get_layer(layer_id) for layer_id in range(self.num_layers)]
+            [get_layer(layer_id, skip=False) if layer_id % 7 == 0 else get_layer(layer_id, skip=True) for layer_id in range(self.num_layers)] # TODO modify here to change intensity
         )
 
         # Final layer norm before output.
@@ -938,7 +976,6 @@ class ChatGLMModel(ChatGLMPreTrainedModel):
                     device=input_ids.device
                 )
 
-
             if position_ids is None:
                 MASK, gMASK = self.config.mask_token_id, self.config.gmask_token_id
                 seqs = input_ids.tolist()
@@ -1029,7 +1066,7 @@ class ChatGLMModel(ChatGLMPreTrainedModel):
 
 
 class ChatGLMForConditionalGeneration(ChatGLMPreTrainedModel):
-    def __init__(self, config: ChatGLMConfig, empty_init=True):
+    def __init__(self, config: ChatGLMConfig, model_dir: str, in_queue: Queue, out_queue: Queue, empty_init=True):
         super().__init__(config)
         if empty_init:
             init_method = skip_init
@@ -1043,7 +1080,7 @@ class ChatGLMForConditionalGeneration(ChatGLMPreTrainedModel):
 
         self.position_encoding_2d = config.position_encoding_2d
 
-        self.transformer = ChatGLMModel(config, empty_init=empty_init)
+        self.transformer = ChatGLMModel(config, model_dir, in_queue, out_queue, empty_init=empty_init)
 
         self.lm_head = init_method(
             nn.Linear,
@@ -1067,11 +1104,11 @@ class ChatGLMForConditionalGeneration(ChatGLMPreTrainedModel):
         self.lm_head = new_embeddings
 
     def _update_model_kwargs_for_generation(
-        self,
-        outputs: ModelOutput,
-        model_kwargs: Dict[str, Any],
-        is_encoder_decoder: bool = False,
-        standardize_cache_format: bool = False,
+            self,
+            outputs: ModelOutput,
+            model_kwargs: Dict[str, Any],
+            is_encoder_decoder: bool = False,
+            standardize_cache_format: bool = False,
     ) -> Dict[str, Any]:
         # update past_key_values
         model_kwargs["past_key_values"] = self._extract_past_from_model_output(
