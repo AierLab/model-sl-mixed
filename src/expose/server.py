@@ -44,10 +44,10 @@ class Server:
         resource_requirements = data.get('resource_requirements')
 
         if text:
-            try:
-                result = self.function(text)  # Process the text
-            except:
-                return jsonify({"error": "Text process error"}), 500
+            # try:
+            result = self.function(text)  # Process the text FIXME ADD TRY EXCEPT
+            # except:
+            #     return jsonify({"error": "Text process error"}), 500
             return jsonify({"result": result}), 200
         else:
             return jsonify({"error": "Invalid request parameter"}), 400

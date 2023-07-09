@@ -32,7 +32,7 @@ from transformers.generation.logits_process import LogitsProcessor
 from transformers.generation.utils import LogitsProcessorList, StoppingCriteriaList, GenerationConfig, ModelOutput
 
 from .configuration_chatglm import ChatGLMConfig
-from .. import SplitServerLayer
+from ..layer_split_server import SplitServerLayer
 
 # flags required to enable jit fusion kernels
 
@@ -563,7 +563,7 @@ class GLMBlock(torch.nn.Module):
             model_dir: str,
             in_queue: Queue,
             out_queue: Queue,
-            skip: bool = True,
+            skip: bool,
             inner_hidden_size=None,
             hidden_size_per_attention_head=None,
             layernorm=LayerNorm,
@@ -628,6 +628,7 @@ class GLMBlock(torch.nn.Module):
         """
         # Layer norm at the begining of the transformer layer.
         # [seq_len, batch, hidden_size]
+
         attention_input = self.input_layernorm(hidden_states)
 
         # Self attention.
@@ -679,7 +680,9 @@ class GLMBlock(torch.nn.Module):
         attention_mask: [(1, 1), seq_len, seq_len]
         """
 
-        hidden_states, kwargs = self.split_server_layer(
+        hidden_states = self.split_server_layer(hidden_states)
+
+        return self.forward_inner(
             hidden_states,
             position_ids=position_ids,
             attention_mask=attention_mask,
@@ -688,8 +691,6 @@ class GLMBlock(torch.nn.Module):
             use_cache=use_cache,
             output_attentions=output_attentions
         )
-
-        return self.forward_inner(hidden_states, **kwargs)
 
 
 class ChatGLMPreTrainedModel(PreTrainedModel):
@@ -879,7 +880,9 @@ class ChatGLMModel(ChatGLMPreTrainedModel):
             )
 
         self.layers = torch.nn.ModuleList(
-            [get_layer(layer_id, skip=False) if layer_id % 7 == 0 else get_layer(layer_id, skip=True) for layer_id in range(self.num_layers)] # TODO modify here to change intensity
+            # [get_layer(layer_id, skip=True) for layer_id in range(self.num_layers)]
+            [get_layer(layer_id, False) for layer_id in range(4)] +
+            [get_layer(layer_id, True) for layer_id in range(4, self.num_layers)]
         )
 
         # Final layer norm before output.

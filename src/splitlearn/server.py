@@ -44,15 +44,16 @@ class SplitServer:
         print(f"Received data.")
 
         self.in_queue.put(data)
+
+        print(f"Send data back.")
         while self.out_queue.empty():
-            sleep(0.1)
+            pass
         data = self.out_queue.get()
 
         for key in data:
             if "byte" in key:
                 data[key] = base64.b64encode(data[key]).decode('utf-8')
 
-        print(f"Sending intermediate data back.")
         return jsonify(data)
 
     def run(self, host: str, port: int) -> None:

@@ -1,8 +1,9 @@
 from data import CifarData
+from expose import Server
 from splitlearn import SplitClient
 import torch.nn as nn
 
-from model.model_split_client import SplitClientModel
+from model import SplitClientModel
 
 layer_num = 28
 
@@ -12,11 +13,15 @@ if __name__ == '__main__':
     CLIENT_DIR = "../tmp/client/c02"
     # CLIENT_DIR = "../tmp/client/c01"
 
-    model_layers = nn.ModuleList([nn.Linear(in_features=4096, out_features=4096, bias=True) for layer_id in range(layer_num) if layer_id % 7 == 0])
+    # model_layers = nn.ModuleList([])
+    model_layers = nn.ModuleList([nn.Identity() for layer_id in range(4)])
+    # model_layers = nn.ModuleList([nn.Linear(in_features=4096, out_features=4096, bias=True) for layer_id in range(4)])
 
     # Init data, socket and model.
-    data = CifarData(data_dir=CLIENT_DIR)
-    client = SplitClient('http://localhost:10086', 'secret_api_key')
+    client = SplitClient('http://localhost:8888', 'secret_api_key')
+    model = SplitClientModel(model_layers, client, CLIENT_DIR).half()
 
-    model = SplitClientModel(model_layers, client, CLIENT_DIR)
-    model.model_train(data.trainloader, epochs=1)
+    print("Welcome to the ChatGLM-6B model. Type your message.")
+    print("Welcome to the ChatGLM-6B model. Type your message.")
+    server = Server(model.process)
+    server.run("localhost", 10086)
