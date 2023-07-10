@@ -610,7 +610,10 @@ class GLMBlock(torch.nn.Module):
             empty_init=empty_init
         )
 
-        self.split_server_layer = SplitServerLayer(model_dir, in_queue, out_queue, skip)
+        if not skip:
+            self.split_server_layer = SplitServerLayer(model_dir, in_queue, out_queue)
+        else:
+            self.split_server_layer = nn.Identity()
 
     def forward_inner(
             self,
@@ -881,8 +884,8 @@ class ChatGLMModel(ChatGLMPreTrainedModel):
 
         self.layers = torch.nn.ModuleList(
             # [get_layer(layer_id, skip=True) for layer_id in range(self.num_layers)]
-            [get_layer(layer_id, False) for layer_id in range(4)] +
-            [get_layer(layer_id, True) for layer_id in range(4, self.num_layers)]
+            [get_layer(layer_id, False) for layer_id in range(1)] +
+            [get_layer(layer_id, True) for layer_id in range(1, self.num_layers)]
         )
 
         # Final layer norm before output.

@@ -14,7 +14,7 @@ if __name__ == '__main__':
     # CLIENT_DIR = "../tmp/client/c01"
 
     # model_layers = nn.ModuleList([])
-    model_layers = nn.ModuleList([nn.Identity() for layer_id in range(4)])
+    model_layers = nn.ModuleList([nn.Identity() for layer_id in range(1)])
     # model_layers = nn.ModuleList([nn.Linear(in_features=4096, out_features=4096, bias=True) for layer_id in range(4)])
 
     # Init data, socket and model.

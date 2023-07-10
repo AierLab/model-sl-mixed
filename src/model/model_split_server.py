@@ -91,6 +91,10 @@ class SplitServerModel:
             data = {"byte_data": serialized_data, "stage": "forward"}
             self.out_queue.put(data)
 
+        while self.in_queue.empty():
+            pass
+        self.in_queue.get()
+
         print("Sending None as ending.")
         while not self.out_queue.empty():
             pass

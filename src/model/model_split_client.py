@@ -50,6 +50,8 @@ class SplitClientModel(AbstractModel):
 
             if type(server_data) is str:
                 break
+
+            layer_index += 1
         return x
 
     def backward(self, loss: torch.Tensor):
@@ -166,9 +168,10 @@ class SplitClientModel(AbstractModel):
 
             if x is None:
                 break
-            else:
+            elif type(x) is torch.Tensor:
                 x = x.to(self.device)
                 x = self.forward(x)
+            # else: (type(x) is str)
 
             result = x
         return result
