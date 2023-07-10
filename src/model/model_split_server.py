@@ -70,6 +70,7 @@ class SplitServerModel:
     def process(self) -> str:
         while self.in_queue.empty():
             pass
+        print("Received")
         data = self.in_queue.get()
         # print(repr(serialized_data))
         query = pickle.loads(data["byte_data"])

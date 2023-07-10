@@ -14,7 +14,7 @@ if __name__ == '__main__':
     # CLIENT_DIR = "../tmp/client/c01"
 
     # model_layers = nn.ModuleList([])
-    model_layers = nn.ModuleList([nn.Identity() for layer_id in range(1)])
+    model_layers = nn.ModuleList([nn.Identity() for layer_id in range(1)]) # TODO change the number of split layers
     # model_layers = nn.ModuleList([nn.Linear(in_features=4096, out_features=4096, bias=True) for layer_id in range(4)])
 
     # Init data, socket and model.
@@ -22,6 +22,18 @@ if __name__ == '__main__':
     model = SplitClientModel(model_layers, client, CLIENT_DIR).half()
 
     print("Welcome to the ChatGLM-6B model. Type your message.")
-    print("Welcome to the ChatGLM-6B model. Type your message.")
-    server = Server(model.process)
-    server.run("localhost", 10086)
+    while True:
+        query = input("\nUser: ").strip()
+        if query == "stop":
+            model.stop() # TODO
+            break
+        elif query == "clear":
+            model.clear() # TODO
+            print("Chat history cleared.")
+        else:
+            response = model.process(query)
+            print(response)
+
+    # FIXME for server use
+    # server = Server(model.process)
+    # server.run("localhost", 10086)

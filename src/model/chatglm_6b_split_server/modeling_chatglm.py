@@ -615,7 +615,7 @@ class GLMBlock(torch.nn.Module):
         else:
             self.split_server_layer = nn.Identity()
 
-    def forward_inner(
+    def forward(
             self,
             hidden_states: torch.Tensor,
             position_ids,
@@ -629,9 +629,10 @@ class GLMBlock(torch.nn.Module):
         hidden_states: [seq_len, batch, hidden_size]
         attention_mask: [(1, 1), seq_len, seq_len]
         """
+        hidden_states = self.split_server_layer(hidden_states)
+
         # Layer norm at the begining of the transformer layer.
         # [seq_len, batch, hidden_size]
-
         attention_input = self.input_layernorm(hidden_states)
 
         # Self attention.
@@ -667,33 +668,6 @@ class GLMBlock(torch.nn.Module):
             outputs = (output,) + outputs[1:]
 
         return outputs  # hidden_states, present, attentions
-
-    def forward(
-            self,
-            hidden_states: torch.Tensor,
-            position_ids,
-            attention_mask: torch.Tensor,
-            layer_id,
-            layer_past: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
-            use_cache: bool = False,
-            output_attentions: bool = False,
-    ):
-        """
-        hidden_states: [seq_len, batch, hidden_size]
-        attention_mask: [(1, 1), seq_len, seq_len]
-        """
-
-        hidden_states = self.split_server_layer(hidden_states)
-
-        return self.forward_inner(
-            hidden_states,
-            position_ids=position_ids,
-            attention_mask=attention_mask,
-            layer_id=layer_id,
-            layer_past=layer_past,
-            use_cache=use_cache,
-            output_attentions=output_attentions
-        )
 
 
 class ChatGLMPreTrainedModel(PreTrainedModel):
@@ -885,7 +859,7 @@ class ChatGLMModel(ChatGLMPreTrainedModel):
         self.layers = torch.nn.ModuleList(
             # [get_layer(layer_id, skip=True) for layer_id in range(self.num_layers)]
             [get_layer(layer_id, False) for layer_id in range(1)] +
-            [get_layer(layer_id, True) for layer_id in range(1, self.num_layers)]
+            [get_layer(layer_id, True) for layer_id in range(1, self.num_layers)] # TODO change the number of split layers
         )
 
         # Final layer norm before output.
@@ -1110,11 +1084,11 @@ class ChatGLMForConditionalGeneration(ChatGLMPreTrainedModel):
         self.lm_head = new_embeddings
 
     def _update_model_kwargs_for_generation(
-            self,
-            outputs: ModelOutput,
-            model_kwargs: Dict[str, Any],
-            is_encoder_decoder: bool = False,
-            standardize_cache_format: bool = False,
+        self,
+        outputs: ModelOutput,
+        model_kwargs: Dict[str, Any],
+        is_encoder_decoder: bool = False,
+        standardize_cache_format: bool = False,
     ) -> Dict[str, Any]:
         # update past_key_values
         model_kwargs["past_key_values"] = self._extract_past_from_model_output(
