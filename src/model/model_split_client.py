@@ -1,11 +1,13 @@
 import torch
 from torch.optim import Adam
 from torch.utils.data import DataLoader
+from transformers import LogitsProcessorList
 
+from model.chatglm_6b_split_server.modeling_chatglm import InvalidScoreLogitsProcessor
 from splitlearn import SplitClient
 import pickle
 from abc import abstractmethod, ABC
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 
 import torch.nn as nn
 import torch
@@ -21,11 +23,12 @@ class SplitClientModel(AbstractModel):
     def __init__(self, model_layers, client: SplitClient, model_dir: str, device=None):
         super().__init__(model_dir)
         # get all model layers
-        self.layers = nn.ModuleList(list(model_layers.children()))
+        self.layers = model_layers
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") if device is None else device
-        self.optimizers = [Adam(layer.parameters(), lr=0.001, ) for layer in self.layers]
+        # self.optimizers = [Adam(layer.parameters(), lr=0.001, ) for layer in self.layers]
         self.client = client
         self.forward_results: List[torch.Tensor] = []
+        self.to(self.device)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Compute forward result of all model layers."""
@@ -38,19 +41,17 @@ class SplitClientModel(AbstractModel):
             x = self.layers[layer_index](x)
             self.forward_results.append(x)
 
-            # Not communicate with server in the end of inference.
-            layer_index += 1
-            if layer_index >= len(self.layers):
-                break
-
             # pickle the tensor data
             serialized_data = pickle.dumps(x)
             # Send the result to the server
             print("Sending intermediate result to the server")
-            server_data = self.client.send_process_and_retrieve({"byte_data": serialized_data, "stage": "forward"})["byte_data"]
-            # print(repr(serialized_data))
+            server_data = self.client.send_data({"byte_data": serialized_data, "stage": "forward"})["byte_data"]
             x = pickle.loads(server_data)
-            x = x.to(self.device)
+
+            if type(server_data) is str:
+                break
+
+            layer_index += 1
         return x
 
     def backward(self, loss: torch.Tensor):
@@ -77,7 +78,7 @@ class SplitClientModel(AbstractModel):
         # Send the result back to the server
         serialized_data = pickle.dumps(forward_result.grad)
         print("Sending first grads result to the server")
-        serialized_data = self.client.send_process_and_retrieve({"byte_data": serialized_data, "stage": "backward"})["byte_data"]
+        serialized_data = self.client.send_data({"byte_data": serialized_data, "stage": "backward"})["byte_data"]
         layer_index -= 1
 
         while layer_index >= 0:  # not the first layer, don't need to calculate it for the first layer
@@ -98,7 +99,7 @@ class SplitClientModel(AbstractModel):
                 # Send the result back to the client
                 serialized_data = pickle.dumps(forward_result.grad)
                 print("Sending intermediate grads result to the server")
-                serialized_data = self.client.send_process_and_retrieve({"byte_data": serialized_data})["byte_data"]
+                serialized_data = self.client.send_data({"byte_data": serialized_data})["byte_data"]
 
             layer_index -= 1
 
@@ -153,3 +154,24 @@ class SplitClientModel(AbstractModel):
         """
         # TODO: Implement this method
         pass
+
+    def process(self, query):
+        result = None
+        while True:
+            # pickle the tensor data
+            serialized_data = pickle.dumps(query)
+            # Send the result to the server
+            print("Sending query to the server")
+            server_data = self.client.send_data({"byte_data": serialized_data, "stage": "forward"})["byte_data"]
+            # print(repr(serialized_data))
+            x = pickle.loads(server_data)
+
+            if x is None:
+                break
+            elif type(x) is torch.Tensor:
+                x = x.to(self.device)
+                x = self.forward(x)
+            # else: (type(x) is str)
+
+            result = x
+        return result

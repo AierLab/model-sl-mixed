@@ -5,6 +5,7 @@
 3. `fedlearn` and `splitlearn` are for clients and servers.
 2. `model`, `data`, `helper` are shared between `fedlearn` and `splitlearn`.
 3. `*abstract` include abstract classes for different functionality.
+4. `expose` is the code to expose functions to outside world.
 
 ## Help info
 
